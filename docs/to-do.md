@@ -18,17 +18,18 @@
         + elastic service stub;
     
     - tests:
-        - config validation;
-        - db tests:
-            - migration ladder;
-        - fixtures:
-            - test db + migrations;
-            - data generator + db operations;
-            - elastic service mock;
-            - app / test client;
-        - app routes tests:     // app + db interaction, elastic is mocked
-            - search endpoint;
-            - delete endpoint;
+        + fixtures & helpers:
+            + test db + migrations;
+            + data generator + db operations;
+            + elastic service mock;
+            + app / test client;
+        - test cases:
+            - config validation;
+            - db tests:
+                - migration ladder;
+            - app routes tests:     // app + db interaction, elastic is mocked
+                - search endpoint;
+                - delete endpoint;
 
 - elastic:
     - container;
