@@ -17,7 +17,8 @@ class DocumentRepository:
         упорядоченные по дате создания по убыванию.
         """
         if not ids:
-            return []
+            raise NotFoundException("No documents found for the given query")
+
         stmt = (
             select(DocumentModel)
             .where(DocumentModel.id.in_(ids))
@@ -25,7 +26,10 @@ class DocumentRepository:
             .limit(limit)
         )
         result = await self._session.execute(stmt)
-        return [Document.model_validate(doc) for doc in result.scalars().all()]
+        documents = [Document.model_validate(doc) for doc in result.scalars().all()]
+        if not documents:
+            raise NotFoundException("No documents found for the given query")
+        return documents
 
     async def delete_by_id(self, doc_id: int) -> None:
         """Удаляет документ по id."""

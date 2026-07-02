@@ -132,9 +132,8 @@ def elastic_mock() -> ElasticServiceMock:
 @pytest.fixture
 async def test_app(test_db_migrations, test_config: Config, elastic_mock: ElasticServiceMock):
     app = create_app(test_config, elastic_service=elastic_mock)
-    yield app
-    if hasattr(app.state, "engine"):
-        await app.state.engine.dispose()
+    async with app.router.lifespan_context(app):
+        yield app
 
 
 @pytest.fixture

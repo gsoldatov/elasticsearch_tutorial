@@ -1,6 +1,10 @@
+from typing import cast
+
 from fastapi import APIRouter, Query, Request
 
+from src.db.repository import Repository
 from src.models import Document
+from src.services.elastic import ElasticServiceBase
 
 router = APIRouter(tags=["search"])
 
@@ -14,8 +18,10 @@ async def search(
     Поиск документов по тексту.
     Возвращает до 20 документов, упорядоченных по дате создания.
     """
-    elastic_service = request.app.state.elastic_service
-    repository = request.state.repository
+    elastic_service = cast(ElasticServiceBase, request.app.state.elastic_service)
+    repository = cast(Repository, request.state.repository)
 
+    # TODO: обработать ошибки ES (ElasticsearchException) при появлении
+    #       реального клиента — сейчас заглушка не падает.
     ids = await elastic_service.search(q)
     return await repository.document.get_by_ids(ids, limit=20)
