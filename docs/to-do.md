@@ -6,8 +6,8 @@
     - db setup;
         + container;
         + db setup;
-        - db model; // select correct data types
-        - migration;
+        + db model; // select correct data types
+        + migration;
         - data injection script;
         
     - app:
@@ -48,3 +48,5 @@
     - list decisions made:
         - search path: api -> elastic (for matching indices) -> api -> postgres (for 20 rows with full data);
         - matching rows are sorted by date DESC;
+        - created_at is converted to UTC;
+        - rubrics type is TEXT[];
