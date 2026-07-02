@@ -3,6 +3,7 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from src.config import Config, get_config
@@ -54,6 +55,18 @@ def create_app(
     @app.exception_handler(InternalValidationException)
     async def internal_validation_handler(
         _request: Request, _exc: InternalValidationException,
+    ) -> JSONResponse:
+        return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+    @app.exception_handler(OperationalError)
+    async def operational_error_handler(
+        _request: Request, _exc: OperationalError,
+    ) -> JSONResponse:
+        return JSONResponse(status_code=503, content={"detail": "Service unavailable"})
+
+    @app.exception_handler(Exception)
+    async def generic_exception_handler(
+        _request: Request, _exc: Exception,
     ) -> JSONResponse:
         return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
