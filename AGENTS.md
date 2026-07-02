@@ -37,12 +37,14 @@ Stack used:
 - `.env` file is a single source of configuration for all project items;
 - use absolute imports and update sys.path in executable files;
 - repository methods:
-    - return Pydantic models;
-    - are decorated with `internal_validation`;
+    - convert returned data to Pydantic models;
+    - are decorated with `internal_validation`, when they return Pydantic model objects;
 - Pydantic models live in `src/models/`, SQLAlchemy ORM models in `src/db/models.py`;
 - error messages, comments and README are in Russian; code is in English;
 
 - tests:
+    - write test cases as functions;
+    - test case order (where applicable): errors (validation, network, etc.) -> business logic errors -> edge cases -> happy path;
     - assert errors are in Russian, rest can be in English;
 
 
