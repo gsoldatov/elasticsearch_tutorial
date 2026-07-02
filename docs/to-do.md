@@ -24,9 +24,8 @@
             + elastic service mock;
             + app / test client;
         - test cases:
-            - config validation;
-            - db tests:
-                - migration ladder;
+            + config validation;
+            - db tests; // migration ladder, required tables exist after a migration
             - app routes tests:     // app + db interaction, elastic is mocked
                 - search endpoint;
                 - delete endpoint;

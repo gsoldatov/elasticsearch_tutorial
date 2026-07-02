@@ -19,11 +19,11 @@ class Config(BaseSettings):
 
     db_default_database: Annotated[str, Field(min_length=1)]
     db_default_username: Annotated[str, Field(min_length=1)]
-    db_default_password: str
+    db_default_password: Annotated[str, Field(min_length=1)]
 
     db_app_database: Annotated[str, Field(min_length=1)]
     db_app_username: Annotated[str, Field(min_length=1)]
-    db_app_password: str
+    db_app_password: Annotated[str, Field(min_length=1)]
 
     @property
     def db_app_url(self) -> str:

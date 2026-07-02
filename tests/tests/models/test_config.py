@@ -44,8 +44,9 @@ class TestConfigModel:
         with pytest.raises(ValidationError):
             Config(**{**data, "db_app_database": ""})
 
-    def test_password_can_be_empty(self, test_config: Config):
+    def test_empty_password_raises(self, test_config: Config):
         data = test_config.model_dump()
-        cfg = Config(**{**data, "db_default_password": "", "db_app_password": ""})
-        assert cfg.db_default_password == ""
-        assert cfg.db_app_password == ""
+        with pytest.raises(ValidationError):
+            Config(**{**data, "db_default_password": ""})
+        with pytest.raises(ValidationError):
+            Config(**{**data, "db_app_password": ""})
