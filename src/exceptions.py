@@ -6,6 +6,10 @@ from typing import overload
 from pydantic import ValidationError
 
 
+class NotFoundException(Exception):
+    """Запрашиваемый объект не найден."""
+
+
 class InternalValidationException(Exception):
     """Ошибка внутренней валидации — подменяет Pydantic ValidationError."""
 

@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from src.config import Config, get_config
-from src.exceptions import InternalValidationException
+from src.exceptions import InternalValidationException, NotFoundException
 from src.middleware.repository import repository_middleware
 from src.routes import setup_routes
 from src.services.elastic import ElasticService, ElasticServiceBase
@@ -44,6 +44,12 @@ def create_app(
 
     app = FastAPI(lifespan=lifespan, **kwargs)
     app.state.config = config
+
+    @app.exception_handler(NotFoundException)
+    async def not_found_handler(
+        _request: Request, exc: NotFoundException,
+    ) -> JSONResponse:
+        return JSONResponse(status_code=404, content={"detail": str(exc)})
 
     @app.exception_handler(InternalValidationException)
     async def internal_validation_handler(

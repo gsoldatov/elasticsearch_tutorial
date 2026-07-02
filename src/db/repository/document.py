@@ -2,7 +2,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.models import Document as DocumentModel
-from src.exceptions import internal_validation
+from src.exceptions import NotFoundException, internal_validation
 from src.models import Document
 
 
@@ -28,6 +28,8 @@ class DocumentRepository:
         return [Document.model_validate(doc) for doc in result.scalars().all()]
 
     async def delete_by_id(self, doc_id: int) -> None:
-        """Удаляет документ по id. Если документ не найден — ничего не делает."""
+        """Удаляет документ по id."""
         stmt = delete(DocumentModel).where(DocumentModel.id == doc_id)
-        await self._session.execute(stmt)
+        result = await self._session.execute(stmt)
+        if result.rowcount == 0:
+            raise NotFoundException(f"Document {doc_id} not found")
