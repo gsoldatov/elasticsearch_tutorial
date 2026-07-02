@@ -3,12 +3,12 @@
 - app + db setup:
     + project config;
 
-    - db setup;
+    + db setup;
         + container;
         + db setup;
         + db model; // select correct data types
         + migration;
-        - data injection script;
+        + data injection script;
         
     - app:
         - validators;
