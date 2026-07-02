@@ -11,20 +11,30 @@ Stack used:
 - pytest;
 
 
-# Architecture
-- `.env` file is a single source of configuration for all project items;
-- `src/app.py` — FastAPI application factory;
-- `src/config.py` — loads and validates config from `.env` via Pydantic Settings;
-- `src/db/` — SQLAlchemy ORM models, Alembic migrations, repository layer, admin scripts:
-    - `alembic/` — Alembic migrations;
-    - `repository/` — repository classes (facade `Repository` + per-entity repositories);
-- `src/middleware/` — middleware dir;
-- `src/models/` — Pydantic models (config, document schemas);
-- `src/routes/` — route handlers with sub-routers per resource;
-- `src/services/` — services (ES client);
-
+# Project Structure
+- `src/`:
+    - `app.py` — FastAPI application factory;
+    - `config.py` — loads and validates config from `.env` via Pydantic Settings;
+    - `db/` — SQLAlchemy ORM models, Alembic migrations, repository layer, admin scripts:
+        - `alembic/` — Alembic migrations;
+        - `repository/` — repository classes (facade `Repository` + per-entity repositories);
+    - `middleware/` — middleware dir;
+    - `models/` — Pydantic models (config, document schemas);
+    - `routes/` — route handlers with sub-routers per resource;
+    - `services/` — services (ES client);
+- `tests/`:
+    - `conftest.py` — shared fixtures:
+        - config and test database are module-scoped;
+        - test app and client are test-scoped;
+        - db data is truncated after each test;
+    - `mocks/`:
+        - data generation classes;
+        - db operations;
+        - elastic service mock for app + db tests;
+    - `tests/`: test cases mirroring `src/` structure;
 
 # Patterns and Implementation Guidelines
+- `.env` file is a single source of configuration for all project items;
 - use absolute imports and update sys.path in executable files;
 - repository methods:
     - return Pydantic models;
@@ -33,6 +43,11 @@ Stack used:
 - error messages, comments and README are in Russian; code is in English;
 
 - tests:
-    - placed in `tests/tests` directory and follow project's structure:
-        - app tests tests use a temporary DB (via Docker) and mock ES client;
- 
+    - assert errors are in Russian, rest can be in English;
+
+
+# Commands
+```bash
+# Run all tests (requires `docker compose up`)
+uv run pytest tests/
+```
