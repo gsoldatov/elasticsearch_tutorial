@@ -1,7 +1,8 @@
 + repo setup & dependencies;
 
 - app + db setup:
-    - project config;
+    + project config;
+    
     - db setup;
         - container;
         - db model; // select correct data types
