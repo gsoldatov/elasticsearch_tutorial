@@ -1,4 +1,4 @@
-from src.types.elastic import ElasticServiceBase
+from src.services.elastic.base import ElasticServiceBase
 
 
 class ElasticService(ElasticServiceBase):

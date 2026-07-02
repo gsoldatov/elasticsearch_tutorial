@@ -5,6 +5,8 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class DocumentCreate(BaseModel):
+    """Модель для парсинга и валидации строки CSV перед вставкой в БД."""
+
     text: str
     created_date: datetime
     rubrics: list[str]
@@ -26,6 +28,7 @@ class DocumentCreate(BaseModel):
 
 
 class Document(BaseModel):
+    """Полные данные документа."""
     model_config = ConfigDict(from_attributes=True)
 
     id: int

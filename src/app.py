@@ -7,8 +7,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from src.config import Config, get_config
 from src.middleware.repository import repository_middleware
 from src.routes import setup_routes
-from src.services.elastic import ElasticService
-from src.types.elastic import ElasticServiceBase
+from src.services.elastic import ElasticService, ElasticServiceBase
 
 
 def create_app(
