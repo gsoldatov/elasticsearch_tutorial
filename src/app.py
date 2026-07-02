@@ -1,10 +1,12 @@
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from src.config import Config, get_config
+from src.exceptions import InternalValidationException
 from src.middleware.repository import repository_middleware
 from src.routes import setup_routes
 from src.services.elastic import ElasticService, ElasticServiceBase
@@ -42,6 +44,12 @@ def create_app(
 
     app = FastAPI(lifespan=lifespan, **kwargs)
     app.state.config = config
+
+    @app.exception_handler(InternalValidationException)
+    async def internal_validation_handler(
+        _request: Request, _exc: InternalValidationException,
+    ) -> JSONResponse:
+        return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
     app.middleware("http")(repository_middleware)
     setup_routes(app)
