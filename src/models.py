@@ -1,7 +1,7 @@
 import ast
 from datetime import datetime, timezone
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class DocumentCreate(BaseModel):
@@ -23,3 +23,12 @@ class DocumentCreate(BaseModel):
         if isinstance(v, str):
             return ast.literal_eval(v)
         return v
+
+
+class Document(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    rubrics: list[str]
+    text: str
+    created_date: datetime

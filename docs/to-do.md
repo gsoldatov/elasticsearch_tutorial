@@ -10,12 +10,12 @@
         + migration;
         + data injection script;
         
-    - app:
-        - validators;
-        - route handlers;
-        - db repository;
-        - app setup;
-        - elastic service stub;
+    + app:
+        + validators;
+        + route handlers;
+        + db repository;
+        + app setup;
+        + elastic service stub;
     
     - tests:
         - config validation;
@@ -50,3 +50,6 @@
         - matching rows are sorted by date DESC;
         - created_at is converted to UTC;
         - rubrics type is TEXT[];
+        - /search endpoint:
+            - accepts a query as URL param;
+            ? finds exact match;
