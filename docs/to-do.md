@@ -31,19 +31,19 @@
                 + delete endpoint;
 
 
-- elastic:
++ elastic:
     + container; // configure elastic & update project config
     + index creation; // dynamic: strict; number of replicas
     + data injection script;
     - implement elastic service;
 
-    - tests:
+    + tests:
         + elastic service tests:
             + main operations (search, delete);
             + index management (create, delete, index docs)
-        - app routes handle elastic errors gracefully;
+        + app routes handle elastic errors gracefully;
 
-
+- replace English comments;
 ? dev container & volume names
 - change port numbers;
 - deployment with Docker Compose;

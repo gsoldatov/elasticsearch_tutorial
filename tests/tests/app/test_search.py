@@ -1,6 +1,10 @@
 from unittest.mock import patch
 
+from elasticsearch import ConnectionError
 from sqlalchemy.exc import OperationalError
+
+
+# ── errors ─────────────────────────────────────────────────────────────────
 
 
 async def test_search_missing_query_param_returns_422(test_client):
@@ -27,6 +31,17 @@ async def test_search_db_operational_error_returns_503(test_client, elastic_mock
         assert response.json()["detail"] == "Service unavailable"
 
 
+async def test_search_es_error_returns_503(test_client, elastic_mock):
+    """Ошибка Elasticsearch — 503."""
+    elastic_mock.raise_on_search = ConnectionError("cluster down")
+    response = await test_client.get("/search", params={"q": "test"})
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Service unavailable"
+
+
+# ── edge cases ─────────────────────────────────────────────────────────────
+
+
 async def test_search_returns_404_when_es_returns_nothing(test_client):
     """ES не нашёл совпадений — 404."""
     response = await test_client.get("/search", params={"q": "nothing"})
@@ -39,6 +54,9 @@ async def test_search_returns_404_when_docs_not_in_db(test_client, elastic_mock)
     elastic_mock.set_search_result("missing", [99999])
     response = await test_client.get("/search", params={"q": "missing"})
     assert response.status_code == 404
+
+
+# ── valid ──────────────────────────────────────────────────────────────────
 
 
 async def test_search_results_sorted_by_created_date_desc(
@@ -101,5 +119,5 @@ async def test_search_returns_matching_documents(
     assert body[0]["text"] == doc1.text
     assert body[0]["rubrics"] == doc1.rubrics
     assert body[0]["created_date"] is not None
-    
+
     assert elastic_mock.search_calls == [{"query": "hello"}]

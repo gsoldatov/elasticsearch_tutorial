@@ -1,6 +1,10 @@
 from unittest.mock import patch
 
+from elasticsearch import ConnectionError
 from sqlalchemy.exc import OperationalError
+
+
+# ── errors ─────────────────────────────────────────────────────────────────
 
 
 async def test_delete_db_operational_error_returns_503(test_client):
@@ -15,12 +19,42 @@ async def test_delete_db_operational_error_returns_503(test_client):
     assert response.json()["detail"] == "Service unavailable"
 
 
+async def test_delete_es_error_returns_503(
+    test_client, elastic_mock,
+):
+    """Ошибка Elasticsearch при удалении — 503."""
+    elastic_mock.raise_on_delete = ConnectionError("cluster down")
+    response = await test_client.delete("/documents/1")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Service unavailable"
+
+
+async def test_delete_es_error_does_not_call_db(
+    test_client, db_operations, data_generator, elastic_mock,
+):
+    """При ошибке ES удаление из БД не происходит."""
+    doc = db_operations.documents.insert(data_generator.documents.document_create())
+    elastic_mock.raise_on_delete = ConnectionError("cluster down")
+
+    response = await test_client.delete(f"/documents/{doc.id}")
+
+    assert response.status_code == 503
+    assert db_operations.documents.by_id(doc.id) is not None
+
+
+# ── edge cases ─────────────────────────────────────────────────────────────
+
+
 async def test_delete_nonexistent_document_returns_404(test_client):
     """Документ не существует — 404."""
     response = await test_client.delete("/documents/99999")
 
     assert response.status_code == 404
     assert "not found" in response.json()["detail"].lower()
+
+
+# ── valid ──────────────────────────────────────────────────────────────────
 
 
 async def test_delete_existing_document(

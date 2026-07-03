@@ -21,7 +21,5 @@ async def search(
     elastic_service = cast(ElasticServiceBase, request.app.state.elastic_service)
     repository = cast(Repository, request.state.repository)
 
-    # TODO: обработать ошибки ES (ElasticsearchException) при появлении
-    #       реального клиента — сейчас заглушка не падает.
     ids = await elastic_service.search(q)
     return await repository.document.get_by_ids(ids, limit=20)

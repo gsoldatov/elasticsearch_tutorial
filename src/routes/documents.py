@@ -14,12 +14,9 @@ router = APIRouter(tags=["documents"])
     response_class=Response,
 )
 async def delete_document(request: Request, doc_id: int) -> None:
-    """Удаляет документ по id из БД и поискового индекса."""
+    """Удаляет документ по id из поискового индекса и БД."""
     elastic_service = cast(ElasticServiceBase, request.app.state.elastic_service)
     repository = cast(Repository, request.state.repository)
 
-    await repository.document.delete_by_id(doc_id)
-    # TODO: если удаление из ES упадёт после успешного удаления из БД,
-    #       документ останется в поисковом индексе, но исчезнет из Postgres.
-    #       Нужно решить порядок удаления (ES → DB) или добавить компенсацию.
     await elastic_service.delete(doc_id)
+    await repository.document.delete_by_id(doc_id)
