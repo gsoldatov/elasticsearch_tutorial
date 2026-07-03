@@ -1,10 +1,4 @@
 from src.elastic.base import ElasticServiceBase
+from src.elastic.service import ElasticService
 
-
-class ElasticService(ElasticServiceBase):
-    """Сервисный класс для взаимодействия с ES."""
-    async def search(self, query: str) -> list[int]:
-        return []
-
-    async def delete(self, doc_id: int) -> None:
-        pass
+__all__ = ["ElasticServiceBase", "ElasticService"]

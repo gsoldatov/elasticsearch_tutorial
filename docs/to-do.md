@@ -33,16 +33,14 @@
 
 - elastic:
     + container; // configure elastic & update project config
-    - index creation:
-        ? dynamic: strict;
-        ? number of shards / replicas
-    - data injection script;
+    + index creation; // dynamic: strict; number of replicas
+    + data injection script;
     - implement elastic service;
 
     - tests:
         - elastic service tests:
-            - search;
-            - delete;
+            - routes (search, delete);
+            - index management (create, delete, index docs)
         - app routes handle elastic errors gracefully;
 
 
@@ -58,4 +56,6 @@
         - rubrics type is TEXT[];
         - /search endpoint:
             - accepts a query as URL param;
-            ? finds exact match;
+            - finds exact match (match_phrase);
+        - index structure:
+            - _id duplicates source.id
