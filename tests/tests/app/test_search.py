@@ -4,7 +4,7 @@ from elasticsearch import ConnectionError
 from sqlalchemy.exc import OperationalError
 
 
-# ── errors ─────────────────────────────────────────────────────────────────
+# ── ошибки ─────────────────────────────────────────────────────────────────
 
 
 async def test_search_missing_query_param_returns_422(test_client):
@@ -28,7 +28,7 @@ async def test_search_db_operational_error_returns_503(test_client, elastic_mock
     ):
         response = await test_client.get("/search", params={"q": "test"})
         assert response.status_code == 503
-        assert response.json()["detail"] == "Service unavailable"
+        assert response.json()["detail"] == "Сервис недоступен"
 
 
 async def test_search_es_error_returns_503(test_client, elastic_mock):
@@ -36,17 +36,17 @@ async def test_search_es_error_returns_503(test_client, elastic_mock):
     elastic_mock.raise_on_search = ConnectionError("cluster down")
     response = await test_client.get("/search", params={"q": "test"})
     assert response.status_code == 503
-    assert response.json()["detail"] == "Service unavailable"
+    assert response.json()["detail"] == "Сервис недоступен"
 
 
-# ── edge cases ─────────────────────────────────────────────────────────────
+# ── граничные случаи ───────────────────────────────────────────────────────
 
 
 async def test_search_returns_404_when_es_returns_nothing(test_client):
     """ES не нашёл совпадений — 404."""
     response = await test_client.get("/search", params={"q": "nothing"})
     assert response.status_code == 404
-    assert "No documents found" in response.json()["detail"]
+    assert "Документы по заданному запросу не найдены" in response.json()["detail"]
 
 
 async def test_search_returns_404_when_docs_not_in_db(test_client, elastic_mock):
@@ -56,7 +56,7 @@ async def test_search_returns_404_when_docs_not_in_db(test_client, elastic_mock)
     assert response.status_code == 404
 
 
-# ── valid ──────────────────────────────────────────────────────────────────
+# ── корректные ─────────────────────────────────────────────────────────────
 
 
 async def test_search_results_sorted_by_created_date_desc(

@@ -58,25 +58,25 @@ def create_app(
     async def internal_validation_handler(
         _request: Request, _exc: InternalValidationException,
     ) -> JSONResponse:
-        return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+        return JSONResponse(status_code=500, content={"detail": "Внутренняя ошибка сервера"})
 
     @app.exception_handler(OperationalError)
     async def operational_error_handler(
         _request: Request, _exc: OperationalError,
     ) -> JSONResponse:
-        return JSONResponse(status_code=503, content={"detail": "Service unavailable"})
+        return JSONResponse(status_code=503, content={"detail": "Сервис недоступен"})
 
     @app.exception_handler(ConnectionError)
     async def elasticsearch_exception_handler(
         _request: Request, _exc: ConnectionError,
     ) -> JSONResponse:
-        return JSONResponse(status_code=503, content={"detail": "Service unavailable"})
+        return JSONResponse(status_code=503, content={"detail": "Сервис недоступен"})
 
     @app.exception_handler(Exception)
     async def generic_exception_handler(
         _request: Request, _exc: Exception,
     ) -> JSONResponse:
-        return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+        return JSONResponse(status_code=500, content={"detail": "Внутренняя ошибка сервера"})
 
     app.middleware("http")(repository_middleware)
     setup_routes(app)

@@ -10,7 +10,7 @@ class ElasticOperations:
         self._client = client
         self._index = index_name
 
-    # ── index operations ───────────────────────────────────────────────
+    # ── операции с индексом ─────────────────────────────────────────────
 
     def create_index(self) -> None:
         self._client.options(ignore_status=400).indices.create(
@@ -23,7 +23,7 @@ class ElasticOperations:
             index=index_name if index_name is not None else self._index,
         )
 
-    # ── document operations ────────────────────────────────────────────
+    # ── операции с документами ──────────────────────────────────────────
 
     def index_document(self, doc_id: int, text: str) -> None:
         self._client.index(

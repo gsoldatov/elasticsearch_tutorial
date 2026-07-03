@@ -6,7 +6,7 @@ from src.elastic import ElasticService
 from tests.mocks.elastic_operations import ElasticOperations
 
 
-# ── search ─────────────────────────────────────────────────────────────────
+# ── поиск ──────────────────────────────────────────────────────────────────
 
 
 async def test_search_on_nonexistent_index_raises(
@@ -57,7 +57,7 @@ async def test_search_finds_indexed_document(
     assert result == [1]
 
 
-# ── delete ─────────────────────────────────────────────────────────────────
+# ── удаление ───────────────────────────────────────────────────────────────
 
 
 async def test_delete_nonexistent_document_does_not_raise(

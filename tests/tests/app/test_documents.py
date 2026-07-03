@@ -4,7 +4,7 @@ from elasticsearch import ConnectionError
 from sqlalchemy.exc import OperationalError
 
 
-# ── errors ─────────────────────────────────────────────────────────────────
+# ── ошибки ─────────────────────────────────────────────────────────────────
 
 
 async def test_delete_db_operational_error_returns_503(test_client):
@@ -16,7 +16,7 @@ async def test_delete_db_operational_error_returns_503(test_client):
         response = await test_client.delete("/documents/1")
 
     assert response.status_code == 503
-    assert response.json()["detail"] == "Service unavailable"
+    assert response.json()["detail"] == "Сервис недоступен"
 
 
 async def test_delete_es_error_returns_503(
@@ -27,7 +27,7 @@ async def test_delete_es_error_returns_503(
     response = await test_client.delete("/documents/1")
 
     assert response.status_code == 503
-    assert response.json()["detail"] == "Service unavailable"
+    assert response.json()["detail"] == "Сервис недоступен"
 
 
 async def test_delete_es_error_does_not_call_db(
@@ -43,7 +43,7 @@ async def test_delete_es_error_does_not_call_db(
     assert db_operations.documents.by_id(doc.id) is not None
 
 
-# ── edge cases ─────────────────────────────────────────────────────────────
+# ── граничные случаи ───────────────────────────────────────────────────────
 
 
 async def test_delete_nonexistent_document_returns_404(test_client):
@@ -51,10 +51,10 @@ async def test_delete_nonexistent_document_returns_404(test_client):
     response = await test_client.delete("/documents/99999")
 
     assert response.status_code == 404
-    assert "not found" in response.json()["detail"].lower()
+    assert "не найден" in response.json()["detail"].lower()
 
 
-# ── valid ──────────────────────────────────────────────────────────────────
+# ── корректные ─────────────────────────────────────────────────────────────
 
 
 async def test_delete_existing_document(

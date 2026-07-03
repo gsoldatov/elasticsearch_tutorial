@@ -23,7 +23,7 @@ from tests.mocks.elastic_mock import ElasticServiceMock
 from tests.mocks.elastic_operations import ElasticOperations
 
 
-# ── Module scope ──────────────────────────────────────────────────────────
+# ── Уровень модуля ────────────────────────────────────────────────────────
 
 
 @pytest.fixture(scope="module")
@@ -96,7 +96,7 @@ def test_elastic_index(test_config: Config):
         client.close()
 
 
-# ── Function scope ────────────────────────────────────────────────────────
+# ── Уровень функции ───────────────────────────────────────────────────────
 
 
 @pytest.fixture
