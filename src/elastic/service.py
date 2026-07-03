@@ -15,7 +15,7 @@ class ElasticService(ElasticServiceBase):
             "dynamic": "strict",
             "properties": {
                 "id": {"type": "long"},
-                "text": {"type": "text"},
+                "text": {"type": "text", "analyzer": "russian"},
             },
         },
     }
