@@ -52,4 +52,7 @@ Stack used:
 ```bash
 # Run all tests (requires `docker compose up`)
 uv run pytest tests/
+
+# Run Alembic migrations
+uv run alembic -c src/db/alembic/alembic.ini upgrade head
 ```
