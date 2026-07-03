@@ -41,9 +41,10 @@ class ElasticService(ElasticServiceBase):
 
     async def delete(self, doc_id: int) -> None:
         """Удаление документа из поискового индекса."""
-        await self.client.delete(
+        await self.client.options(ignore_status=404).delete(
             index=self._config.es_documents_index_name,
             id=str(doc_id),
+            refresh="true",
         )
 
     async def create_index(self) -> None:
@@ -82,7 +83,7 @@ class ElasticService(ElasticServiceBase):
             }
             for doc in documents
         ]
-        await async_bulk(self.client, actions)
+        await async_bulk(self.client, actions, refresh="true")
 
     async def close(self) -> None:
         """Закрывает ES-клиент."""
