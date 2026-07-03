@@ -1,4 +1,4 @@
-from elasticsearch import AsyncElasticsearch
+from elasticsearch import AsyncElasticsearch, NotFoundError
 from elasticsearch.helpers import async_bulk
 from elastic_transport._node._http_httpx import HttpxAsyncHttpNode
 
@@ -41,11 +41,17 @@ class ElasticService(ElasticServiceBase):
 
     async def delete(self, doc_id: int) -> None:
         """Удаление документа из поискового индекса."""
-        await self.client.options(ignore_status=404).delete(
-            index=self._config.es_documents_index_name,
-            id=str(doc_id),
-            refresh="true",
-        )
+        try:
+            await self.client.delete(
+                index=self._config.es_documents_index_name,
+                id=str(doc_id),
+                refresh="true",
+            )
+        except NotFoundError as e:
+            # Документ не найден — ок (уже удалён или не существует).
+            # Индекс не найден — ошибка, пробрасываем дальше.
+            if e.body and isinstance(e.body, dict) and e.body.get("result") != "not_found":
+                raise
 
     async def create_index(self) -> None:
         """Создаёт индекс с маппингом. Идемпотентно."""
