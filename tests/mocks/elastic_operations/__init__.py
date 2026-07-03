@@ -1,19 +1,10 @@
 from elasticsearch import Elasticsearch
 
+from src.elastic.service import ElasticService
+
 
 class ElasticOperations:
     """Операции с тестовым индексом Elasticsearch (синхронные)."""
-
-    _INDEX_BODY = {
-        "settings": {"number_of_replicas": 0},
-        "mappings": {
-            "dynamic": "strict",
-            "properties": {
-                "id": {"type": "long"},
-                "text": {"type": "text"},
-            },
-        },
-    }
 
     def __init__(self, client: Elasticsearch, index_name: str) -> None:
         self._client = client
@@ -24,7 +15,7 @@ class ElasticOperations:
     def create_index(self) -> None:
         self._client.options(ignore_status=400).indices.create(
             index=self._index,
-            **self._INDEX_BODY,
+            **ElasticService.INDEX_SETTINGS,
         )
 
     def delete_index(self, index_name: str | None = None) -> None:

@@ -9,6 +9,17 @@ from src.elastic.base import ElasticServiceBase
 class ElasticService(ElasticServiceBase):
     """Реализация ElasticServiceBase через AsyncElasticsearch."""
 
+    INDEX_SETTINGS = {
+        "settings": {"number_of_replicas": 0},
+        "mappings": {
+            "dynamic": "strict",
+            "properties": {
+                "id": {"type": "long"},
+                "text": {"type": "text"},
+            },
+        },
+    }
+
     def __init__(self, config: Config) -> None:
         self._config = config
         self._client: AsyncElasticsearch | None = None
@@ -57,14 +68,7 @@ class ElasticService(ElasticServiceBase):
         """Создаёт индекс с маппингом. Идемпотентно."""
         await self.client.options(ignore_status=400).indices.create(
             index=self._config.es_documents_index_name,
-            settings={"number_of_replicas": 0},
-            mappings={
-                "dynamic": "strict",
-                "properties": {
-                    "id": {"type": "long"},
-                    "text": {"type": "text"},
-                },
-            },
+            **self.INDEX_SETTINGS,
         )
 
     async def delete_index(self) -> None:
