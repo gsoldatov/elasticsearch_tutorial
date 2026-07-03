@@ -57,14 +57,12 @@ class TestConfigModel:
         with pytest.raises(ValidationError):
             Config(**{**data, "es_host": ""})
         with pytest.raises(ValidationError):
-            Config(**{**data, "es_username": ""})
-        with pytest.raises(ValidationError):
-            Config(**{**data, "es_index_name": ""})
+            Config(**{**data, "es_documents_index_name": ""})
 
-    def test_empty_es_password_raises(self, test_config: Config):
+    def test_empty_es_superuser_password_raises(self, test_config: Config):
         data = test_config.model_dump()
         with pytest.raises(ValidationError):
-            Config(**{**data, "es_password": ""})
+            Config(**{**data, "es_superuser_password": ""})
 
     def test_empty_password_raises(self, test_config: Config):
         data = test_config.model_dump()
