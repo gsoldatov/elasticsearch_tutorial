@@ -6,6 +6,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from elasticsearch import ConnectionError
+
 from src.config import Config, get_config
 from src.exceptions import InternalValidationException, NotFoundException
 from src.middleware.repository import repository_middleware
@@ -30,7 +32,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        es = elastic_service if elastic_service is not None else ElasticService()
+        es = elastic_service if elastic_service is not None else ElasticService(config)
         engine = None
         try:
             engine = create_async_engine(config.db_app_url)
@@ -61,6 +63,12 @@ def create_app(
     @app.exception_handler(OperationalError)
     async def operational_error_handler(
         _request: Request, _exc: OperationalError,
+    ) -> JSONResponse:
+        return JSONResponse(status_code=503, content={"detail": "Service unavailable"})
+
+    @app.exception_handler(ConnectionError)
+    async def elasticsearch_exception_handler(
+        _request: Request, _exc: ConnectionError,
     ) -> JSONResponse:
         return JSONResponse(status_code=503, content={"detail": "Service unavailable"})
 
