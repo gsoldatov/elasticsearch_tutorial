@@ -6,7 +6,6 @@ import psycopg
 import pytest
 from alembic import command
 from alembic.config import Config as AlembicConfig
-from psycopg import sql
 from psycopg.rows import dict_row
 
 _project_root = Path(__file__).resolve().parents[1]
@@ -15,6 +14,7 @@ if str(_project_root) not in sys.path:
 
 from src.app import create_app
 from src.config import get_config
+from src.db.scripts.app_db import DBManager
 from src.models.config import Config
 from tests.mocks.data_generator import DataGenerator
 from tests.mocks.db_operations import DBOperations
@@ -25,79 +25,41 @@ from tests.mocks.elastic_mock import ElasticServiceMock
 
 
 @pytest.fixture(scope="module")
-def test_db_name() -> str:
-    return f"test_{uuid4().hex}"
+def test_uuid() -> str:
+    return uuid4().hex
 
 
 @pytest.fixture(scope="module")
-def test_config(test_db_name: str) -> Config:
+def test_config(test_uuid: str) -> Config:
     config = get_config(".env.example")
-    config.db_app_database = test_db_name
+    config.db_app_database = f"{config.db_app_database}_test_{test_uuid}"
     return config
 
 
 @pytest.fixture(scope="module")
 def test_db(test_config: Config):
     """Создаёт тестовую БД и возвращает autocommit-соединение с dict_row."""
+    with DBManager(test_config) as db_manager:
+        db_manager.create_user()
+        db_manager.create_db(test_config.db_app_database)
 
-    # Создать БД через дефолтное подключение
-    admin_conn = psycopg.connect(
-        host=test_config.db_host,
-        port=test_config.db_port,
-        user=test_config.db_default_username,
-        password=test_config.db_default_password,
-        dbname=test_config.db_default_database,
-        autocommit=True,
-    )
-    try:
-        admin_conn.execute(
-            sql.SQL("CREATE DATABASE {} OWNER {}").format(
-                sql.Identifier(test_config.db_app_database),
-                sql.Identifier(test_config.db_app_username),
+        test_conn = None
+        try:
+            test_conn = psycopg.connect(
+                host=test_config.db_host,
+                port=test_config.db_port,
+                user=test_config.db_app_username,
+                password=test_config.db_app_password,
+                dbname=test_config.db_app_database,
+                autocommit=True,
+                row_factory=dict_row,
             )
-        )
-    finally:
-        admin_conn.close()
 
-    # Подключиться к тестовой БД
-    test_conn = psycopg.connect(
-        host=test_config.db_host,
-        port=test_config.db_port,
-        user=test_config.db_app_username,
-        password=test_config.db_app_password,
-        dbname=test_config.db_app_database,
-        autocommit=True,
-        row_factory=dict_row,
-    )
-
-    yield test_conn
-
-    test_conn.close()
-
-    # Удалить тестовую БД
-    admin_conn = psycopg.connect(
-        host=test_config.db_host,
-        port=test_config.db_port,
-        user=test_config.db_default_username,
-        password=test_config.db_default_password,
-        dbname=test_config.db_default_database,
-        autocommit=True,
-    )
-    try:
-        admin_conn.execute(
-            sql.SQL(
-                "SELECT pg_terminate_backend(pid) "
-                "FROM pg_stat_activity "
-                "WHERE datname = {} AND pid <> pg_backend_pid()"
-            ).format(sql.Literal(test_config.db_app_database))
-        )
-        admin_conn.execute(
-            sql.SQL("DROP DATABASE IF EXISTS {}").format(
-                sql.Identifier(test_config.db_app_database)
-            )
-        )
-    finally:
-        admin_conn.close()
+            yield test_conn
+        finally:
+            if test_conn is not None:
+                test_conn.close()
+            db_manager.delete_db(test_config.db_app_database)
 
 
 @pytest.fixture(scope="module")

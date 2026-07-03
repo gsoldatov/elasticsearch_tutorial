@@ -83,7 +83,7 @@ class TestConfigFixture:
     """Проверка фикстуры test_config из conftest.py."""
 
     def test_uses_test_db_name(self, test_config: Config):
-        assert test_config.db_app_database.startswith("test_")
+        assert "_test_" in test_config.db_app_database
         assert test_config.db_app_database != "app"
 
     def test_computed_url_includes_test_db(self, test_config: Config):
