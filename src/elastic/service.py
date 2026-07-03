@@ -1,5 +1,6 @@
 from elasticsearch import AsyncElasticsearch
 from elasticsearch.helpers import async_bulk
+from elastic_transport._node._http_httpx import HttpxAsyncHttpNode
 
 from src.config import Config
 from src.elastic.base import ElasticServiceBase
@@ -19,6 +20,7 @@ class ElasticService(ElasticServiceBase):
             self._client = AsyncElasticsearch(
                 self._config.es_url,
                 basic_auth=("elastic", self._config.es_superuser_password),
+                node_class=HttpxAsyncHttpNode,
             )
         return self._client
 
