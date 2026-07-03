@@ -1,0 +1,17 @@
+FROM python:3.13-slim
+
+# Установка uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
+
+# Виртуальное окружение ставится в /venv, а не в /app/.venv — исходники монтируются
+# в /app на рантайме, и хостовая .venv затеняла бы контейнерную.
+# Предварительно создаём венв через `uv venv`, чтобы shebang'и
+# в entrypoint-скриптах указывали на /venv/bin/python3.
+COPY pyproject.toml uv.lock ./
+RUN uv venv /venv --python python3.13
+ENV VIRTUAL_ENV=/venv UV_PROJECT_ENVIRONMENT=/venv
+RUN uv sync --dev --frozen --directory /app
+
+CMD ["uv", "run", "python", "src/main.py"]

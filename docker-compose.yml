@@ -9,6 +9,11 @@ services:
       - "${DB_PORT}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_DEFAULT_USERNAME} -d ${DB_DEFAULT_DATABASE}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   elasticsearch:
     # ES 7.17 — последняя версия без требования AVX/AVX2 на хосте;
@@ -30,6 +35,29 @@ services:
       interval: 10s
       timeout: 5s
       retries: 30
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    # Загружаем весь .env из корня проекта, затем переопределяем
+    # хосты и порты БД и Эластика
+    env_file: .env
+    environment:
+      BACKEND_HOST: "0.0.0.0"
+      DB_HOST: "db"
+      DB_PORT: "5432"
+      ES_HOST: "elasticsearch"
+      ES_PORT: "9200"
+    ports:
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
 
 volumes:
   pgdata:
