@@ -10,5 +10,25 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.1
+    environment:
+      discovery.type: single-node             # Один узел — без кластера и реплик
+      ELASTIC_PASSWORD: ${ES_SUPERUSER_PASSWORD}        # Пароль встроенного пользователя elastic
+      xpack.security.enabled: "true"          # Базовая аутентификация включена
+      xpack.security.http.ssl.enabled: "false" # HTTP без TLS (только для разработки)
+      xpack.license.self_generated.type: basic # Базовая лицензия, без пробных возможностей
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"       # Ограничение heap для dev-окружения
+    ports:
+      - "${ES_PORT}:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -u elastic:${ES_SUPERUSER_PASSWORD} http://localhost:9200/_cluster/health | grep -q green"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
 volumes:
   pgdata:
+  esdata:

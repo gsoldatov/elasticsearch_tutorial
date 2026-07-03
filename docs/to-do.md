@@ -30,9 +30,12 @@
                 + search endpoint;
                 + delete endpoint;
 
+
 - elastic:
-    - container;
-    - index creation;
+    + container; // configure elastic & update project config
+    - index creation:
+        ? dynamic: strict;
+        ? number of shards / replicas
     - data injection script;
     - implement elastic service;
 
@@ -42,6 +45,9 @@
             - delete;
         - app routes handle elastic errors gracefully;
 
+
+? dev container & volume names
+- change port numbers;
 - deployment with Docker Compose;
 
 - readme & API schema:

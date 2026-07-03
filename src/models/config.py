@@ -25,6 +25,11 @@ class Config(BaseSettings):
     db_app_username: Annotated[str, Field(min_length=1)]
     db_app_password: Annotated[str, Field(min_length=1)]
 
+    es_host: Annotated[str, Field(min_length=1)]
+    es_port: Annotated[int, Field(gt=0, lt=65536)]
+    es_superuser_password: Annotated[str, Field(min_length=1)]
+    es_documents_index_name: Annotated[str, Field(min_length=1)]
+
     @property
     def db_app_url(self) -> str:
         return (
@@ -40,3 +45,7 @@ class Config(BaseSettings):
             f"{self.db_default_username}:{self.db_default_password}"
             f"@{self.db_host}:{self.db_port}/{self.db_default_database}"
         )
+
+    @property
+    def es_url(self) -> str:
+        return f"http://{self.es_host}:{self.es_port}"
