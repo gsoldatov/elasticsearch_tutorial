@@ -30,7 +30,7 @@ async def ingest_es_data(config) -> int:
         await es.create_index()
 
         async with async_session() as session:
-            stream = session.stream(select(Document.id, Document.text))
+            stream = await session.stream(select(Document.id, Document.text))
 
             count = 0
             batch: list[dict] = []
