@@ -3,7 +3,7 @@ from typing import cast
 from fastapi import APIRouter, Request, Response
 
 from src.db.repository import Repository
-from src.services.elastic import ElasticServiceBase
+from src.elastic import ElasticServiceBase
 
 router = APIRouter(tags=["documents"])
 

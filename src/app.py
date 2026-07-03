@@ -10,7 +10,7 @@ from src.config import Config, get_config
 from src.exceptions import InternalValidationException, NotFoundException
 from src.middleware.repository import repository_middleware
 from src.routes import setup_routes
-from src.services.elastic import ElasticService, ElasticServiceBase
+from src.elastic import ElasticService, ElasticServiceBase
 
 
 def create_app(

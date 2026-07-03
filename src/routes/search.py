@@ -4,7 +4,7 @@ from fastapi import APIRouter, Query, Request
 
 from src.db.repository import Repository
 from src.models import Document
-from src.services.elastic import ElasticServiceBase
+from src.elastic import ElasticServiceBase
 
 router = APIRouter(tags=["search"])
 

@@ -18,10 +18,10 @@ Stack used:
     - `db/` — SQLAlchemy ORM models, Alembic migrations, repository layer, admin scripts:
         - `alembic/` — Alembic migrations;
         - `repository/` — repository classes (facade `Repository` + per-entity repositories);
+    - `elastic/` — Elastic client, configuration and related utilities;
     - `middleware/` — middleware dir;
     - `models/` — Pydantic models (config, document schemas);
     - `routes/` — route handlers with sub-routers per resource;
-    - `services/` — services (ES client);
 - `tests/`:
     - `conftest.py` — shared fixtures:
         - config and test database are module-scoped;

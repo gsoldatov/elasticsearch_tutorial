@@ -1,4 +1,4 @@
-from src.services.elastic import ElasticServiceBase
+from src.elastic import ElasticServiceBase
 
 
 class ElasticServiceMock(ElasticServiceBase):
