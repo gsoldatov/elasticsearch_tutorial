@@ -40,7 +40,7 @@ Stack used:
     - convert returned data to Pydantic models;
     - are decorated with `internal_validation`, when they return Pydantic model objects;
 - Pydantic models live in `src/models/`, SQLAlchemy ORM models in `src/db/models.py`;
-- error messages, comments and README are in Russian; code is in English;
+- error messages, comments (including separation comments) and README are in Russian; code is in English;
 
 - tests:
     - write test cases as functions;
