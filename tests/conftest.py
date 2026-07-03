@@ -6,6 +6,7 @@ import psycopg
 import pytest
 from alembic import command
 from alembic.config import Config as AlembicConfig
+from elasticsearch import Elasticsearch
 from psycopg.rows import dict_row
 
 _project_root = Path(__file__).resolve().parents[1]
@@ -19,6 +20,7 @@ from src.models.config import Config
 from tests.mocks.data_generator import DataGenerator
 from tests.mocks.db_operations import DBOperations
 from tests.mocks.elastic_mock import ElasticServiceMock
+from tests.mocks.elastic_operations import ElasticOperations
 
 
 # ── Module scope ──────────────────────────────────────────────────────────
@@ -33,6 +35,7 @@ def test_uuid() -> str:
 def test_config(test_uuid: str) -> Config:
     config = get_config(".env.example")
     config.db_app_database = f"{config.db_app_database}_test_{test_uuid}"
+    config.es_documents_index_name = f"{config.es_documents_index_name}_test_{test_uuid}"
     return config
 
 
@@ -63,7 +66,7 @@ def test_db(test_config: Config):
 
 
 @pytest.fixture(scope="module")
-def test_db_migrations(test_db, test_config: Config):
+def test_db_migrations(test_db: psycopg.Connection, test_config: Config):
     """Применяет миграции к тестовой БД."""
     alembic_dir = _project_root / "src" / "db" / "alembic"
     alembic_ini = alembic_dir / "alembic.ini"
@@ -76,11 +79,28 @@ def test_db_migrations(test_db, test_config: Config):
     yield
 
 
+@pytest.fixture(scope="module")
+def test_elastic_index(test_config: Config):
+    """Создаёт тестовый ES-индекс и возвращает клиент с именем индекса."""
+    client = Elasticsearch(
+        test_config.es_url,
+        basic_auth=("elastic", test_config.es_superuser_password),
+    )
+    index_name = test_config.es_documents_index_name
+    ops = ElasticOperations(client, index_name)
+    try:
+        ops.create_index()
+        yield client, index_name
+    finally:
+        ops.delete_index()
+        client.close()
+
+
 # ── Function scope ────────────────────────────────────────────────────────
 
 
 @pytest.fixture
-def clean_db(test_db):
+def clean_db(test_db: psycopg.Connection):
     """Очищает таблицы после каждого теста."""
     yield test_db
     test_db.execute("TRUNCATE TABLE documents RESTART IDENTITY CASCADE")
@@ -89,6 +109,33 @@ def clean_db(test_db):
 @pytest.fixture
 def elastic_mock() -> ElasticServiceMock:
     return ElasticServiceMock()
+
+
+@pytest.fixture
+def elastic_operations(test_elastic_index) -> ElasticOperations:
+    client, index_name = test_elastic_index
+    return ElasticOperations(client, index_name)
+
+
+@pytest.fixture
+async def real_elastic_service(test_config: Config, test_elastic_index):
+    """
+    ElasticService, использующий индекс из test_elastic_index.
+    
+    Очищает индекс после теста.
+    """
+    from src.elastic import ElasticService
+
+    client, index_name = test_elastic_index
+    es = ElasticService(test_config)
+    try:
+        yield es
+    finally:
+        try:
+            ElasticOperations(client, index_name).delete_all()
+        except Exception:
+            pass
+        await es.close()
 
 
 @pytest.fixture

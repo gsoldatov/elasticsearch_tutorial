@@ -38,9 +38,9 @@
     - implement elastic service;
 
     - tests:
-        - elastic service tests:
-            - routes (search, delete);
-            - index management (create, delete, index docs)
+        + elastic service tests:
+            + main operations (search, delete);
+            + index management (create, delete, index docs)
         - app routes handle elastic errors gracefully;
 
 
