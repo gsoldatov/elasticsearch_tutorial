@@ -127,7 +127,7 @@ async def real_elastic_service(test_config: Config, test_elastic_index):
     from src.elastic import ElasticService
 
     client, index_name = test_elastic_index
-    es = ElasticService(test_config)
+    es = ElasticService(test_config, refresh=True)
     try:
         yield es
     finally:

@@ -20,8 +20,9 @@ class ElasticService(ElasticServiceBase):
         },
     }
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, *, refresh: bool = False) -> None:
         self._config = config
+        self._refresh = refresh
         self._client: AsyncElasticsearch | None = None
 
     @property
@@ -56,7 +57,7 @@ class ElasticService(ElasticServiceBase):
             await self.client.delete(
                 index=self._config.es_documents_index_name,
                 id=str(doc_id),
-                refresh="true",
+                refresh=self._refresh,
             )
         except NotFoundError as e:
             # Документ не найден — ок (уже удалён или не существует).
@@ -93,7 +94,7 @@ class ElasticService(ElasticServiceBase):
             }
             for doc in documents
         ]
-        await async_bulk(self.client, actions, refresh="true")
+        await async_bulk(self.client, actions, refresh=self._refresh)
 
     async def close(self) -> None:
         """Закрывает ES-клиент."""
