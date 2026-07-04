@@ -93,11 +93,7 @@ uv run alembic -c src/db/alembic/alembic.ini upgrade head
 # 6. Создать поисковый индекс
 uv run src/elastic/scripts/create_index.py
 
-# 7. Загрузить тестовые данные
-uv run src/db/scripts/ingest_data.py
-uv run src/elastic/scripts/ingest_es_data.py
-
-# 8. Запустить сервер
+# 7. Запустить сервер
 uv run python src/main.py
 ```
 
