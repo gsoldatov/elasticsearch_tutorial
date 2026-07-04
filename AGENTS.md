@@ -48,8 +48,9 @@ Stack used:
     - assert errors are in Russian, rest can be in English;
 
 
-# Commands (for Local Development Environment)
-## DB Management
+# Commands
+## When App Server is Run Locally
+### DB Management
 ```bash
 # Create app user & DB
 uv run src/db/scripts/app_db.py
@@ -65,7 +66,7 @@ uv run src/db/scripts/app_db.py --delete-existing
 ```
 
 
-## Elastic Management
+### Elastic Management
 ```bash
 # Create document index
 uv run src/elastic/scripts/create_index.py
@@ -78,8 +79,48 @@ uv run src/elastic/scripts/delete_index.py
 ```
 
 
-## Testing
+### Testing
 ```bash
 # Run all tests (requires `docker compose up`)
 uv run pytest tests/
+```
+
+
+## When App Server is Run in Docker
+Commands are run after `docker compose up` is done.
+
+
+### DB Management
+```bash
+# Create app user & DB
+docker compose exec api uv run src/db/scripts/app_db.py
+
+# Run Alembic migrations
+docker compose exec api uv run alembic -c src/db/alembic/alembic.ini upgrade head
+
+# Ingest test data
+docker compose exec api uv run src/db/scripts/ingest_data.py
+
+# Drop and create again app user & DB
+docker compose exec api uv run src/db/scripts/app_db.py --delete-existing
+```
+
+
+### Elastic Management
+```bash
+# Create document index
+docker compose exec api uv run src/elastic/scripts/create_index.py
+
+# Ingest documents into index (only after they're added to DB)
+docker compose exec api uv run src/elastic/scripts/ingest_es_data.py
+
+# Delete document index
+docker compose exec api uv run src/elastic/scripts/delete_index.py
+```
+
+
+### Testing
+```bash
+# Run all tests (requires `docker compose up`)
+docker compose exec api uv run pytest tests/
 ```
