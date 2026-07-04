@@ -17,14 +17,7 @@ class DBManager:
 
     def __init__(self, config: Config) -> None:
         self._config = config
-        self._conn = psycopg.connect(
-            host=config.db_host,
-            port=config.db_port,
-            user=config.db_default_username,
-            password=config.db_default_password,
-            dbname=config.db_default_database,
-            autocommit=True,
-        )
+        self._conn = psycopg.connect(config.db_default_url, autocommit=True)
 
     def close(self) -> None:
         self._conn.close()

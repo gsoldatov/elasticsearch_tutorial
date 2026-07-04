@@ -36,7 +36,7 @@ def create_app(
         es = elastic_service if elastic_service is not None else ElasticService(config)
         engine = None
         try:
-            engine = create_async_engine(config.db_app_url)
+            engine = create_async_engine(config.db_app_sa_url)
             app.state.engine = engine
             app.state.elastic_service = es
             yield

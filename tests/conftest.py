@@ -49,11 +49,7 @@ def test_db(test_config: Config):
         test_conn = None
         try:
             test_conn = psycopg.connect(
-                host=test_config.db_host,
-                port=test_config.db_port,
-                user=test_config.db_app_username,
-                password=test_config.db_app_password,
-                dbname=test_config.db_app_database,
+                test_config.db_app_url,
                 autocommit=True,
                 row_factory=dict_row,
             )

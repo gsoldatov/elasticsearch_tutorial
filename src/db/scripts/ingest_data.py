@@ -21,7 +21,7 @@ async def ingest_data(config, csv_path: Path) -> int:
 
     Возвращает количество загруженных документов.
     """
-    engine = create_async_engine(config.db_app_url)
+    engine = create_async_engine(config.db_app_sa_url)
     async_session = async_sessionmaker(engine)
 
     # Чтение и валидация CSV

@@ -22,7 +22,7 @@ async def ingest_es_data(config) -> int:
 
     Возвращает количество загруженных документов.
     """
-    engine = create_async_engine(config.db_app_url)
+    engine = create_async_engine(config.db_app_sa_url)
     async_session = async_sessionmaker(engine)
     es = ElasticService(config)
 

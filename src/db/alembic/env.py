@@ -28,7 +28,7 @@ target_metadata = Base.metadata
 # Разрешаем передачу конфига проекта через config.attributes.
 # Если атрибут не задан — читаем .env из корня проекта.
 _app_config = config.attributes.get("custom_config") or get_config()
-config.set_main_option("sqlalchemy.url", _app_config.db_app_url)
+config.set_main_option("sqlalchemy.url", _app_config.db_app_sa_url)
 config.attributes["app_config"] = _app_config
 
 

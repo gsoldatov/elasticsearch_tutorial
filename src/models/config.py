@@ -33,15 +33,19 @@ class Config(BaseSettings):
     @property
     def db_app_url(self) -> str:
         return (
-            f"postgresql+psycopg://"
+            f"postgresql://"
             f"{self.db_app_username}:{self.db_app_password}"
             f"@{self.db_host}:{self.db_port}/{self.db_app_database}"
         )
 
     @property
+    def db_app_sa_url(self) -> str:
+        return self.db_app_url.replace("postgresql://", "postgresql+psycopg://")
+
+    @property
     def db_default_url(self) -> str:
         return (
-            f"postgresql+psycopg://"
+            f"postgresql://"
             f"{self.db_default_username}:{self.db_default_password}"
             f"@{self.db_host}:{self.db_port}/{self.db_default_database}"
         )

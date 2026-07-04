@@ -62,6 +62,19 @@ class TestConfigComputedProperties:
         config = get_config(".env.example")
 
         assert config.db_app_url == (
+            "postgresql://user:secret@db:5432/app_db"
+        )
+
+    def test_db_app_sa_url(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv("DB_APP_USERNAME", "user")
+        monkeypatch.setenv("DB_APP_PASSWORD", "secret")
+        monkeypatch.setenv("DB_HOST", "db")
+        monkeypatch.setenv("DB_PORT", "5432")
+        monkeypatch.setenv("DB_APP_DATABASE", "app_db")
+
+        config = get_config(".env.example")
+
+        assert config.db_app_sa_url == (
             "postgresql+psycopg://user:secret@db:5432/app_db"
         )
 
@@ -75,7 +88,7 @@ class TestConfigComputedProperties:
         config = get_config(".env.example")
 
         assert config.db_default_url == (
-            "postgresql+psycopg://admin:admin_secret@db:15432/postgres"
+            "postgresql://admin:admin_secret@db:15432/postgres"
         )
 
 
