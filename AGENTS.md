@@ -36,9 +36,12 @@ Stack used:
 # Patterns and Implementation Guidelines
 - `.env` file is a single source of configuration for all project items;
 - use absolute imports and update sys.path in executable files;
-- repository methods:
+- db repository:
     - convert returned data to Pydantic models;
     - are decorated with `internal_validation`, when they return Pydantic model objects;
+- routes:
+    - OpenAPI docs for the route must correctly reflect all of its responses;
+    - 404 responses are explicitly handled by the route handlers;
 - Pydantic models live in `src/models/`, SQLAlchemy ORM models in `src/db/models.py`;
 - error messages, comments (including separation comments) and README are in Russian; code is in English;
 
