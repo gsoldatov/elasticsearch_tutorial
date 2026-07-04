@@ -43,19 +43,6 @@
             + index management (create, delete, index docs)
         + app routes handle elastic errors gracefully;
 
-- replace English comments;
-? dev container & volume names
-- change port numbers;
-- deployment with Docker Compose;
++ run app in Docker;
 
-- readme & API schema:
-    - list decisions made:
-        - search path: api -> elastic (for matching indices) -> api -> postgres (for 20 rows with full data);
-        - matching rows are sorted by date DESC;
-        - created_at is converted to UTC;
-        - rubrics type is TEXT[];
-        - /search endpoint:
-            - accepts a query as URL param;
-            - finds exact match (match_phrase);
-        - index structure:
-            - _id duplicates source.id
++ readme & API schema;
