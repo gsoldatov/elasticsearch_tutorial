@@ -6,9 +6,14 @@ dist/
 build/
 .venv/
 
+
 # Configuration
 .env
 
 
 # Development env
 .qwen
+
+
+# Misc
+docs/vacancy.md
