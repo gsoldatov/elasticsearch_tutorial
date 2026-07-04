@@ -85,7 +85,7 @@ uv run src/elastic/scripts/delete_index.py
 ### Testing
 ```bash
 # Run all tests (requires `docker compose up`)
-uv run pytest tests/
+uv run pytest
 ```
 
 
@@ -125,5 +125,5 @@ docker compose exec api uv run src/elastic/scripts/delete_index.py
 ### Testing
 ```bash
 # Run all tests (requires `docker compose up`)
-docker compose exec api uv run pytest tests/
+docker compose exec api uv run pytest
 ```

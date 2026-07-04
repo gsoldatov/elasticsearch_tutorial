@@ -61,7 +61,7 @@ docker compose exec api uv run src/db/scripts/ingest_data.py
 docker compose exec api uv run src/elastic/scripts/ingest_es_data.py
 
 # Запустить тесты
-docker compose exec api uv run pytest tests/
+docker compose exec api uv run pytest
 
 # Пересоздать пользователя и БД приложения
 docker compose exec api uv run src/db/scripts/app_db.py --delete-existing
@@ -109,7 +109,7 @@ uv run src/db/scripts/ingest_data.py
 uv run src/elastic/scripts/ingest_es_data.py
 
 # Запустить тесты
-uv run pytest tests/
+uv run pytest
 
 # Пересоздать пользователя и БД приложения
 uv run src/db/scripts/app_db.py --delete-existing
