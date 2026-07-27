@@ -32,7 +32,7 @@
 
 #  To-Do
 + add a tag;
-- replace exception handlers with an error middleware;
++ replace exception handlers with an error middleware;
 
 - implement additional functionality:
     - add another dataset:

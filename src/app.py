@@ -1,17 +1,12 @@
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from sqlalchemy.exc import OperationalError
+from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from elasticsearch import ConnectionError
-
 from src.config import Config, get_config
-from src.exceptions import InternalValidationException
+from src.middleware.error import error_middleware
 from src.middleware.repository import repository_middleware
-from src.models import ErrorResponse
 from src.routes import setup_routes
 from src.elastic import ElasticService, ElasticServiceBase
 
@@ -49,43 +44,8 @@ def create_app(
     app = FastAPI(lifespan=lifespan, **kwargs)
     app.state.config = config
 
-    @app.exception_handler(InternalValidationException)
-    async def internal_validation_handler(
-        _request: Request, _exc: InternalValidationException,
-    ) -> JSONResponse:
-        return JSONResponse(
-            status_code=500,
-            content=ErrorResponse(detail="Внутренняя ошибка сервера").model_dump(),
-        )
-
-    @app.exception_handler(OperationalError)
-    async def operational_error_handler(
-        _request: Request, _exc: OperationalError,
-    ) -> JSONResponse:
-        return JSONResponse(
-            status_code=503,
-            content=ErrorResponse(detail="Сервис недоступен").model_dump(),
-        )
-
-    @app.exception_handler(ConnectionError)
-    async def elasticsearch_exception_handler(
-        _request: Request, _exc: ConnectionError,
-    ) -> JSONResponse:
-        return JSONResponse(
-            status_code=503,
-            content=ErrorResponse(detail="Сервис недоступен").model_dump(),
-        )
-
-    @app.exception_handler(Exception)
-    async def generic_exception_handler(
-        _request: Request, _exc: Exception,
-    ) -> JSONResponse:
-        return JSONResponse(
-            status_code=500,
-            content=ErrorResponse(detail="Внутренняя ошибка сервера").model_dump(),
-        )
-
     app.middleware("http")(repository_middleware)
+    app.middleware("http")(error_middleware)
     setup_routes(app)
 
     return app
