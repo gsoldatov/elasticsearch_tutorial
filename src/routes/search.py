@@ -30,5 +30,5 @@ async def search(
     elastic_service = cast(ElasticServiceBase, request.app.state.elastic_service)
     repository = cast(Repository, request.state.repository)
 
-    ids = await elastic_service.search(q)
+    ids = await elastic_service.documents.search(q)
     return await repository.document.get_by_ids(ids, limit=20)

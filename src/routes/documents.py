@@ -25,5 +25,5 @@ async def delete_document(request: Request, doc_id: int):
     elastic_service = cast(ElasticServiceBase, request.app.state.elastic_service)
     repository = cast(Repository, request.state.repository)
 
-    await elastic_service.delete(doc_id)
+    await elastic_service.documents.delete(doc_id)
     await repository.document.delete_by_id(doc_id)

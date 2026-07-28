@@ -1,8 +1,8 @@
-from src.elastic import ElasticServiceBase
+from src.elastic import ElasticDocumentsServiceBase, ElasticServiceBase
 
 
-class ElasticServiceMock(ElasticServiceBase):
-    """Заглушка elastic-сервиса с реестром вызовов для тестов."""
+class ElasticDocumentsServiceMock(ElasticDocumentsServiceBase):
+    """Заглушка документных операций elastic-сервиса с реестром вызовов."""
 
     def __init__(self) -> None:
         self._search_results: dict[str, list[int]] = {}
@@ -25,3 +25,17 @@ class ElasticServiceMock(ElasticServiceBase):
         if self.raise_on_delete is not None:
             raise self.raise_on_delete
         self.delete_calls.append({"doc_id": doc_id})
+
+
+class ElasticServiceMock(ElasticServiceBase):
+    """Заглушка фасада elastic-сервиса с реестром вызовов для тестов."""
+
+    def __init__(self) -> None:
+        self._documents = ElasticDocumentsServiceMock()
+
+    @property
+    def documents(self) -> ElasticDocumentsServiceMock:
+        return self._documents
+
+    async def close(self) -> None:
+        pass

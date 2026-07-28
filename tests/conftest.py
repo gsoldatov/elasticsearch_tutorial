@@ -85,7 +85,7 @@ def test_elastic_index(test_config: Config):
     index_name = test_config.es_documents_index_name
     ops = ElasticOperations(client, index_name)
     try:
-        ops.create_index()
+        ops.documents.create_index()
         yield client, index_name
     finally:
         ops.delete_index()
@@ -128,7 +128,7 @@ async def real_elastic_service(test_config: Config, test_elastic_index):
         yield es
     finally:
         try:
-            ElasticOperations(client, index_name).delete_all()
+            ElasticOperations(client, index_name).documents.delete_all()
         except Exception:
             pass
         await es.close()

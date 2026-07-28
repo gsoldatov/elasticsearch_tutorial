@@ -1,13 +1,16 @@
-from elasticsearch import AsyncElasticsearch, NotFoundError
+from typing import TYPE_CHECKING
+
+from elasticsearch import NotFoundError
 from elasticsearch.helpers import async_bulk
-from elastic_transport._node._http_httpx import HttpxAsyncHttpNode
 
-from src.config import Config
-from src.elastic.base import ElasticServiceBase
+from src.elastic.base import ElasticDocumentsServiceBase
+
+if TYPE_CHECKING:
+    from src.elastic.service import ElasticService
 
 
-class ElasticService(ElasticServiceBase):
-    """Реализация ElasticServiceBase через AsyncElasticsearch."""
+class ElasticDocumentsService(ElasticDocumentsServiceBase):
+    """Документные операции ES: индекс, поиск, удаление."""
 
     INDEX_SETTINGS = {
         "settings": {"number_of_replicas": 0},
@@ -20,27 +23,17 @@ class ElasticService(ElasticServiceBase):
         },
     }
 
-    def __init__(self, config: Config, *, refresh: bool = False) -> None:
-        self._config = config
-        self._refresh = refresh
-        self._client: AsyncElasticsearch | None = None
+    def __init__(self, _es: "ElasticService") -> None:
+        self._es = _es
 
     @property
-    def client(self) -> AsyncElasticsearch:
-        """Ленивое создание ES-клиента."""
-        if self._client is None:
-            self._client = AsyncElasticsearch(
-                self._config.es_url,
-                basic_auth=("elastic", self._config.es_superuser_password),
-                node_class=HttpxAsyncHttpNode,
-            )
-        return self._client
+    def client(self):
+        return self._es.client
 
     async def search(self, query: str) -> list[int]:
         """Поиск документов по тексту. Возвращает список id."""
-        index = self._config.es_documents_index_name
         response = await self.client.search(
-            index=index,
+            index=self._es._config.es_documents_index_name,
             body={
                 "query": {
                     "match_phrase": {
@@ -55,27 +48,25 @@ class ElasticService(ElasticServiceBase):
         """Удаление документа из поискового индекса."""
         try:
             await self.client.delete(
-                index=self._config.es_documents_index_name,
+                index=self._es._config.es_documents_index_name,
                 id=str(doc_id),
-                refresh=self._refresh,
+                refresh=self._es._refresh,
             )
         except NotFoundError as e:
-            # Документ не найден — ок (уже удалён или не существует).
-            # Индекс не найден — ошибка, пробрасываем дальше.
             if e.body and isinstance(e.body, dict) and e.body.get("result") != "not_found":
                 raise
 
     async def create_index(self) -> None:
         """Создаёт индекс с маппингом. Идемпотентно."""
         await self.client.options(ignore_status=400).indices.create(
-            index=self._config.es_documents_index_name,
+            index=self._es._config.es_documents_index_name,
             **self.INDEX_SETTINGS,
         )
 
     async def delete_index(self) -> None:
         """Удаляет индекс."""
         await self.client.options(ignore_status=[404]).indices.delete(
-            index=self._config.es_documents_index_name,
+            index=self._es._config.es_documents_index_name,
         )
 
     async def index_documents(self, documents: list[dict]) -> None:
@@ -85,7 +76,7 @@ class ElasticService(ElasticServiceBase):
         """
         actions = [
             {
-                "_index": self._config.es_documents_index_name,
+                "_index": self._es._config.es_documents_index_name,
                 "_id": str(doc["id"]),
                 "_source": {
                     "id": doc["id"],
@@ -94,10 +85,4 @@ class ElasticService(ElasticServiceBase):
             }
             for doc in documents
         ]
-        await async_bulk(self.client, actions, refresh=self._refresh)
-
-    async def close(self) -> None:
-        """Закрывает ES-клиент."""
-        if self._client is not None:
-            await self._client.close()
-            self._client = None
+        await async_bulk(self.client, actions, refresh=self._es._refresh)

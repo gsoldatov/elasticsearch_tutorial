@@ -23,7 +23,7 @@ async def test_delete_es_error_returns_503(
     test_client, elastic_mock,
 ):
     """Ошибка Elasticsearch при удалении — 503."""
-    elastic_mock.raise_on_delete = ConnectionError("cluster down")
+    elastic_mock.documents.raise_on_delete = ConnectionError("cluster down")
     response = await test_client.delete("/documents/1")
 
     assert response.status_code == 503
@@ -35,7 +35,7 @@ async def test_delete_es_error_does_not_call_db(
 ):
     """При ошибке ES удаление из БД не происходит."""
     doc = db_operations.documents.insert(data_generator.documents.document_create())
-    elastic_mock.raise_on_delete = ConnectionError("cluster down")
+    elastic_mock.documents.raise_on_delete = ConnectionError("cluster down")
 
     response = await test_client.delete(f"/documents/{doc.id}")
 
@@ -68,4 +68,4 @@ async def test_delete_existing_document(
     assert response.status_code == 204
     assert response.content == b""
     assert db_operations.documents.by_id(doc.id) is None
-    assert elastic_mock.delete_calls == [{"doc_id": doc.id}]
+    assert elastic_mock.documents.delete_calls == [{"doc_id": doc.id}]

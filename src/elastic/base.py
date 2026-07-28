@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 
 
-class ElasticServiceBase(ABC):
-    """Абстрактный класс для сервиса, взаимодействующего с ES."""
+class ElasticDocumentsServiceBase(ABC):
+    """Абстрактный класс для документных операций с ES."""
 
     @abstractmethod
     async def search(self, query: str) -> list[int]:
@@ -21,5 +21,15 @@ class ElasticServiceBase(ABC):
     async def index_documents(self, documents: list[dict]) -> None:
         """Массовая индексация документов."""
 
+
+class ElasticServiceBase(ABC):
+    """Абстрактный класс для фасада ES-сервиса."""
+
+    @property
+    @abstractmethod
+    def documents(self) -> ElasticDocumentsServiceBase:
+        """Документные операции."""
+
+    @abstractmethod
     async def close(self) -> None:
-        """Освобождение ресурсов (переопределяется в конкретных реализациях)."""
+        """Освобождение ресурсов."""
