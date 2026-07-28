@@ -9,13 +9,13 @@ from sqlalchemy.exc import OperationalError
 
 async def test_search_missing_query_param_returns_422(test_client):
     """Отсутствует параметр q — 422."""
-    response = await test_client.get("/search")
+    response = await test_client.get("/documents/search")
     assert response.status_code == 422
 
 
 async def test_search_empty_query_param_returns_422(test_client):
     """Параметр q пустой — 422 (min_length=1)."""
-    response = await test_client.get("/search", params={"q": ""})
+    response = await test_client.get("/documents/search", params={"q": ""})
     assert response.status_code == 422
 
 
@@ -26,7 +26,7 @@ async def test_search_db_operational_error_returns_503(test_client, elastic_mock
         "src.db.repository.document.DocumentRepository.get_by_ids",
         side_effect=OperationalError("connection refused", None, None),
     ):
-        response = await test_client.get("/search", params={"q": "test"})
+        response = await test_client.get("/documents/search", params={"q": "test"})
         assert response.status_code == 503
         assert response.json()["detail"] == "Сервис недоступен"
 
@@ -34,7 +34,7 @@ async def test_search_db_operational_error_returns_503(test_client, elastic_mock
 async def test_search_es_error_returns_503(test_client, elastic_mock):
     """Ошибка Elasticsearch — 503."""
     elastic_mock.documents.raise_on_search = ConnectionError("cluster down")
-    response = await test_client.get("/search", params={"q": "test"})
+    response = await test_client.get("/documents/search", params={"q": "test"})
     assert response.status_code == 503
     assert response.json()["detail"] == "Сервис недоступен"
 
@@ -44,7 +44,7 @@ async def test_search_es_error_returns_503(test_client, elastic_mock):
 
 async def test_search_returns_404_when_es_returns_nothing(test_client):
     """ES не нашёл совпадений — 404."""
-    response = await test_client.get("/search", params={"q": "nothing"})
+    response = await test_client.get("/documents/search", params={"q": "nothing"})
     assert response.status_code == 404
     assert "Документы по заданному запросу не найдены" in response.json()["detail"]
 
@@ -52,7 +52,7 @@ async def test_search_returns_404_when_es_returns_nothing(test_client):
 async def test_search_returns_404_when_docs_not_in_db(test_client, elastic_mock):
     """ES вернул id, но документов с такими id нет в БД — 404."""
     elastic_mock.documents.set_search_result("missing", [99999])
-    response = await test_client.get("/search", params={"q": "missing"})
+    response = await test_client.get("/documents/search", params={"q": "missing"})
     assert response.status_code == 404
 
 
@@ -73,7 +73,7 @@ async def test_search_results_sorted_by_created_date_desc(
     ids = [doc.id for doc in docs]
     elastic_mock.documents.set_search_result("test", ids)
 
-    response = await test_client.get("/search", params={"q": "test"})
+    response = await test_client.get("/documents/search", params={"q": "test"})
 
     assert response.status_code == 200
     body = response.json()
@@ -91,7 +91,7 @@ async def test_search_results_limited_to_20(
     ids = [doc.id for doc in docs]
     elastic_mock.documents.set_search_result("test", ids)
 
-    response = await test_client.get("/search", params={"q": "test"})
+    response = await test_client.get("/documents/search", params={"q": "test"})
 
     assert response.status_code == 200
     body = response.json()
@@ -110,7 +110,7 @@ async def test_search_returns_matching_documents(
     )
     elastic_mock.documents.set_search_result("hello", [doc1.id])
 
-    response = await test_client.get("/search", params={"q": "hello"})
+    response = await test_client.get("/documents/search", params={"q": "hello"})
 
     assert response.status_code == 200
     body = response.json()

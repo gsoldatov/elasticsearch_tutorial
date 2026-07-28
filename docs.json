@@ -5,14 +5,14 @@
         "version": "0.1.0"
     },
     "paths": {
-        "/search": {
+        "/documents/search": {
             "get": {
                 "tags": [
-                    "search"
+                    "documents"
                 ],
                 "summary": "Search",
                 "description": "Поиск документов по тексту.\nВозвращает до 20 документов, упорядоченных по дате создания.",
-                "operationId": "search_search_get",
+                "operationId": "search_documents_search_get",
                 "parameters": [
                     {
                         "name": "q",
@@ -37,7 +37,7 @@
                                     "items": {
                                         "$ref": "#/components/schemas/Document"
                                     },
-                                    "title": "Response Search Search Get"
+                                    "title": "Response Search Documents Search Get"
                                 }
                             }
                         }

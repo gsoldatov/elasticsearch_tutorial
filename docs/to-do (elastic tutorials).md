@@ -32,7 +32,10 @@
 
 #  To-Do
 + add a tag;
-+ replace exception handlers with an error middleware;
++ update existing project:
+    + replace exception handlers with an error middleware;
+    + refactor ElasticService and move out documents functionality;
+    + move search endpoint into documents' router;
 
 - implement additional functionality:
     - add another dataset:
