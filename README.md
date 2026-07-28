@@ -58,7 +58,7 @@ API доступен на `http://localhost:<BACKEND_PORT>`.
 ```bash
 # Загрузить тестовые данные
 docker compose exec api uv run src/db/scripts/ingest_data.py
-docker compose exec api uv run src/elastic/scripts/ingest_es_data.py
+docker compose exec api uv run src/elastic/scripts/ingest_documents.py
 
 # Запустить тесты
 docker compose exec api uv run pytest
@@ -102,7 +102,7 @@ uv run python src/main.py
 ```bash
 # Загрузить тестовые данные
 uv run src/db/scripts/ingest_data.py
-uv run src/elastic/scripts/ingest_es_data.py
+uv run src/elastic/scripts/ingest_documents.py
 
 # Запустить тесты
 uv run pytest

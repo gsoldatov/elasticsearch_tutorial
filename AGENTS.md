@@ -75,7 +75,7 @@ uv run src/db/scripts/app_db.py --delete-existing
 uv run src/elastic/scripts/create_index.py
 
 # Ingest documents into index (only after they're added to DB)
-uv run src/elastic/scripts/ingest_es_data.py
+uv run src/elastic/scripts/ingest_documents.py
 
 # Delete document index
 uv run src/elastic/scripts/delete_index.py
@@ -115,7 +115,7 @@ docker compose exec api uv run src/db/scripts/app_db.py --delete-existing
 docker compose exec api uv run src/elastic/scripts/create_index.py
 
 # Ingest documents into index (only after they're added to DB)
-docker compose exec api uv run src/elastic/scripts/ingest_es_data.py
+docker compose exec api uv run src/elastic/scripts/ingest_documents.py
 
 # Delete document index
 docker compose exec api uv run src/elastic/scripts/delete_index.py

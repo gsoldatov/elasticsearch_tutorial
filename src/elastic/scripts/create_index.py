@@ -25,7 +25,7 @@ async def _main() -> None:
     config = get_config(args.env_file)
     es = ElasticService(config)
     try:
-        await es.create_index()
+        await es.documents.create_index()
         print(f"  ✓ индекс '{config.es_documents_index_name}' создан")
     finally:
         await es.close()

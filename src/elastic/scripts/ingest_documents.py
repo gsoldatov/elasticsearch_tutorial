@@ -14,7 +14,7 @@ from src.db.models import Document
 from src.elastic import ElasticService
 
 
-async def ingest_es_data(config) -> int:
+async def ingest_documents(config) -> int:
     """Читает документы из БД и загружает их в поисковый индекс.
 
     Использует серверный курсор для потокового чтения, чтобы не загружать
@@ -27,7 +27,7 @@ async def ingest_es_data(config) -> int:
     es = ElasticService(config)
 
     try:
-        await es.create_index()
+        await es.documents.create_index()
 
         async with async_session() as session:
             stream = await session.stream(select(Document.id, Document.text))
@@ -37,12 +37,12 @@ async def ingest_es_data(config) -> int:
             async for row in stream:
                 batch.append({"id": row[0], "text": row[1]})
                 if len(batch) >= 1000:
-                    await es.index_documents(batch)
+                    await es.documents.index_documents(batch)
                     count += len(batch)
                     batch = []
 
             if batch:
-                await es.index_documents(batch)
+                await es.documents.index_documents(batch)
                 count += len(batch)
 
         return count
@@ -64,7 +64,7 @@ async def _main() -> None:
     args = parser.parse_args()
 
     config = get_config(args.env_file)
-    count = await ingest_es_data(config)
+    count = await ingest_documents(config)
     print(f"Загружено документов в ES: {count}")
 
 
