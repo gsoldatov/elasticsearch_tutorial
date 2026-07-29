@@ -76,20 +76,24 @@ def test_db_migrations(test_db: psycopg.Connection, test_config: Config):
 
 
 @pytest.fixture(scope="module")
-def test_elastic_index(test_config: Config):
+async def test_elastic_index(test_config: Config):
     """Создаёт тестовый ES-индекс и возвращает клиент с именем индекса."""
-    client = Elasticsearch(
+    from src.elastic import ElasticService
+
+    sync_client = Elasticsearch(
         test_config.es_url,
         basic_auth=("elastic", test_config.es_superuser_password),
     )
     index_name = test_config.es_documents_index_name
-    ops = ElasticOperations(client, index_name)
+
+    es = ElasticService(test_config)
     try:
-        ops.documents.create_index()
-        yield client, index_name
+        await es.migrations.upgrade(current="base", to="head")
+        yield sync_client, index_name
     finally:
-        ops.delete_index()
-        client.close()
+        await es.migrations.delete_indices()
+        sync_client.close()
+        await es.close()
 
 
 # ── Уровень функции ───────────────────────────────────────────────────────

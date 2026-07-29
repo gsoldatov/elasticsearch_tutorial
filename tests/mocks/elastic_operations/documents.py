@@ -1,7 +1,5 @@
 from typing import TYPE_CHECKING
 
-from src.elastic import ElasticDocumentsService
-
 if TYPE_CHECKING:
     from tests.mocks.elastic_operations import ElasticOperations
 
@@ -11,14 +9,6 @@ class ElasticDocumentsOperations:
 
     def __init__(self, _es: "ElasticOperations") -> None:
         self._es = _es
-
-    # ── операции с индексом ─────────────────────────────────────────────
-
-    def create_index(self) -> None:
-        self._es._client.options(ignore_status=400).indices.create(
-            index=self._es._index,
-            **ElasticDocumentsService.INDEX_SETTINGS,
-        )
 
     # ── операции с документами ──────────────────────────────────────────
 

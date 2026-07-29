@@ -97,51 +97,6 @@ async def test_delete_removes_document(
     assert result == []
 
 
-# ── create_index / delete_index ────────────────────────────────────────────
-
-
-async def test_create_and_delete_index_idempotent(
-    real_elastic_service: ElasticService,
-    test_config: Config,
-    elastic_operations: ElasticOperations,
-):
-    """Повторный вызов create_index и delete_index не падает."""
-    saved = test_config.es_documents_index_name
-    idx = test_config.es_documents_index_name = f"{saved}_idx"
-    try:
-        await real_elastic_service.documents.create_index()
-        await real_elastic_service.documents.create_index()
-
-        await real_elastic_service.documents.delete_index()
-        await real_elastic_service.documents.delete_index()
-    finally:
-        elastic_operations.delete_index(idx)
-        test_config.es_documents_index_name = saved
-
-
-async def test_recreate_index_after_delete(
-    real_elastic_service: ElasticService,
-    test_config: Config,
-    elastic_operations: ElasticOperations,
-):
-    """Индекс можно пересоздать после удаления."""
-    saved = test_config.es_documents_index_name
-    idx = test_config.es_documents_index_name = f"{saved}_idx"
-    try:
-        await real_elastic_service.documents.create_index()
-        await real_elastic_service.documents.delete_index()
-        await real_elastic_service.documents.create_index()
-
-        await real_elastic_service.documents.index_documents([
-            {"id": 1, "text": "новый документ"},
-        ])
-        result = await real_elastic_service.documents.search("документ")
-        assert result == [1]
-    finally:
-        elastic_operations.delete_index(idx)
-        test_config.es_documents_index_name = saved
-
-
 # ── index_documents ────────────────────────────────────────────────────────
 
 
