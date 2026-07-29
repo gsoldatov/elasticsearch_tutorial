@@ -1,4 +1,10 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.elastic.service.migrations.base import ElasticMigrationsBase
 
 
 class ElasticDocumentsServiceBase(ABC):
@@ -12,12 +18,6 @@ class ElasticDocumentsServiceBase(ABC):
     async def delete(self, doc_id: int) -> None:
         """Удаление документа из поискового индекса."""
 
-    async def create_index(self) -> None:
-        """Создаёт индекс с маппингом."""
-
-    async def delete_index(self) -> None:
-        """Удаляет индекс."""
-
     async def index_documents(self, documents: list[dict]) -> None:
         """Массовая индексация документов."""
 
@@ -29,6 +29,11 @@ class ElasticServiceBase(ABC):
     @abstractmethod
     def documents(self) -> ElasticDocumentsServiceBase:
         """Документные операции."""
+
+    @property
+    @abstractmethod
+    def migrations(self) -> ElasticMigrationsBase:
+        """Миграции ES."""
 
     @abstractmethod
     async def close(self) -> None:

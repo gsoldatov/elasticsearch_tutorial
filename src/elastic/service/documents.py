@@ -10,18 +10,7 @@ if TYPE_CHECKING:
 
 
 class ElasticDocumentsService(ElasticDocumentsServiceBase):
-    """Документные операции ES: индекс, поиск, удаление."""
-
-    INDEX_SETTINGS = {
-        "settings": {"number_of_replicas": 0},
-        "mappings": {
-            "dynamic": "strict",
-            "properties": {
-                "id": {"type": "long"},
-                "text": {"type": "text", "analyzer": "russian"},
-            },
-        },
-    }
+    """Документные операции ES: поиск, удаление, индексация."""
 
     def __init__(self, _es: "ElasticService") -> None:
         self._es = _es
@@ -55,19 +44,6 @@ class ElasticDocumentsService(ElasticDocumentsServiceBase):
         except NotFoundError as e:
             if e.body and isinstance(e.body, dict) and e.body.get("result") != "not_found":
                 raise
-
-    async def create_index(self) -> None:
-        """Создаёт индекс с маппингом. Идемпотентно."""
-        await self.client.options(ignore_status=400).indices.create(
-            index=self._es._config.es_documents_index_name,
-            **self.INDEX_SETTINGS,
-        )
-
-    async def delete_index(self) -> None:
-        """Удаляет индекс."""
-        await self.client.options(ignore_status=[404]).indices.delete(
-            index=self._es._config.es_documents_index_name,
-        )
 
     async def index_documents(self, documents: list[dict]) -> None:
         """Массовая индексация документов.
