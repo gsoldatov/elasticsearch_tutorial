@@ -38,28 +38,44 @@
     + move search endpoint into documents' router;
 
 - implement additional functionality:
+    + add Elastic migrations definition (move out of service);
+
     - add another dataset:
-        - several indexed fields (title, text, tags, document timestamp, ???);
+        - several indexed fields (title, text, tags, metrics for aggregation, document timestamp, ???);
         ? mock data + ingest;
+        - insertion script;
     
     - add endpoints for another dataset:
-        - CRUD;     // postgresql + elastic
-        - better full-text search:
-            - search by multiple fields;
-                ? use different rules;
-                ? use a more specific set of analyzers;
-            - filter by time;
-            - order;
-            - sort;
-            - limit + pagination;
+        - CRUD:     // postgresql + elastic
+            - upsert:
+                - partial;
+                - optimistic (if_seq_no + if_primary_term);
+        
+        - search:
+            - full-text search:
+                - search by multiple fields;
+                    - case insensitive;
+                    ? use different rules;
+                    ? use a more specific set of analyzers;
+                - filter by time;
+                - order;
+                - sort;
+                - limit + pagination;
+            
+            - fuzzy search;
     
-    - aggregations:
-        // https://www.elastic.co/docs/explore-analyze/query-filter/aggregations/tutorial-analyze-ecommerce-data-with-aggregations-using-query-dsl
-        ???
+        - aggregations:
+            - see above
+            // https://www.elastic.co/docs/explore-analyze/query-filter/aggregations/tutorial-analyze-ecommerce-data-with-aggregations-using-query-dsl
+            ? bool query (`must` + `should` + ???);
+            ???
 
     - vector search:
+    - see above;
+        ? update index script for adding vector mapping without recreating index;   // add migrations?
         ? hybrid search;
         - ingest data;
         - search data;
+        
     
     ? geospatial data;
