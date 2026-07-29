@@ -53,3 +53,12 @@ class Config(BaseSettings):
     @property
     def es_url(self) -> str:
         return f"http://{self.es_host}:{self.es_port}"
+
+    @property
+    def es_indices(self) -> dict[str, str]:
+        """Возвращает словарь {имя_поля: имя_индекса} для всех ES-индексов."""
+        return {
+            attr: getattr(self, attr)
+            for attr in dir(self)
+            if attr.startswith("es_") and attr.endswith("_index_name")
+        }

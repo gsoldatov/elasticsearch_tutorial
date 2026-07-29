@@ -70,3 +70,10 @@ class TestConfigModel:
             Config(**{**data, "db_default_password": ""})
         with pytest.raises(ValidationError):
             Config(**{**data, "db_app_password": ""})
+
+    def test_es_indices(self, test_config: Config):
+        """es_indices содержит все поля es_*_index_name."""
+        indices = test_config.es_indices
+        assert len(indices) == 1
+        assert "es_documents_index_name" in indices
+        assert indices["es_documents_index_name"] == test_config.es_documents_index_name

@@ -38,14 +38,11 @@ class ElasticMigrations(ElasticMigrationsBase):
             await self._revisions[i].downgrade()
 
     async def delete_indices(self) -> None:
-        """Удаляет все индексы, перечисленные в конфиге (маска es_*_index_name)."""
-        config = self._es._config
-        for attr_name in dir(config):
-            if attr_name.startswith("es_") and attr_name.endswith("_index_name"):
-                index_name = getattr(config, attr_name)
-                await self._es.client.options(ignore_status=[404]).indices.delete(
-                    index=index_name,
-                )
+        """Удаляет все индексы, перечисленные в конфиге."""
+        for index_name in self._es._config.es_indices.values():
+            await self._es.client.options(ignore_status=[404]).indices.delete(
+                index=index_name,
+            )
 
     def _resolve_revision(self, revision: str) -> int:
         """Преобразует 'base' / 'head' / число в индекс списка ревизий.
