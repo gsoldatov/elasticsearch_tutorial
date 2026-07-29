@@ -27,8 +27,6 @@ async def ingest_documents(config) -> int:
     es = ElasticService(config)
 
     try:
-        await es.documents.create_index()
-
         async with async_session() as session:
             stream = await session.stream(select(Document.id, Document.text))
 

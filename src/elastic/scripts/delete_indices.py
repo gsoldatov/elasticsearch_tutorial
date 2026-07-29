@@ -12,7 +12,7 @@ from src.elastic import ElasticService
 
 async def _main() -> None:
     parser = argparse.ArgumentParser(
-        description="Создание поискового индекса Elasticsearch"
+        description="Удаление всех поисковых индексов Elasticsearch"
     )
     parser.add_argument(
         "--env-file",
@@ -25,8 +25,8 @@ async def _main() -> None:
     config = get_config(args.env_file)
     es = ElasticService(config)
     try:
-        await es.documents.create_index()
-        print(f"  ✓ индекс '{config.es_documents_index_name}' создан")
+        await es.migrations.delete_indices()
+        print("  ✓ все индексы удалены")
     finally:
         await es.close()
 
