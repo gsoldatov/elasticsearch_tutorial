@@ -48,7 +48,7 @@ docker compose exec api uv run src/db/scripts/app_db.py
 docker compose exec api uv run alembic -c src/db/alembic/alembic.ini upgrade head
 
 # 5. Создать поисковый индекс
-docker compose exec api uv run src/elastic/scripts/create_index.py
+docker compose exec api uv run src/elastic/scripts/migrate.py --current base --to head
 ```
 
 API доступен на `http://localhost:<BACKEND_PORT>`.
@@ -67,8 +67,8 @@ docker compose exec api uv run pytest
 docker compose exec api uv run src/db/scripts/app_db.py --delete-existing
 docker compose exec api uv run alembic -c src/db/alembic/alembic.ini upgrade head
 
-# Удалить индекс в ES
-docker compose exec api uv run src/elastic/scripts/delete_index.py
+# Удалить индексы в ES
+docker compose exec api uv run src/elastic/scripts/delete_indices.py
 ```
 
 
@@ -91,7 +91,7 @@ uv run src/db/scripts/app_db.py
 uv run alembic -c src/db/alembic/alembic.ini upgrade head
 
 # 6. Создать поисковый индекс
-uv run src/elastic/scripts/create_index.py
+uv run src/elastic/scripts/migrate.py --current base --to head
 
 # 7. Запустить сервер
 uv run python src/main.py
@@ -111,8 +111,8 @@ uv run pytest
 uv run src/db/scripts/app_db.py --delete-existing
 uv run alembic -c src/db/alembic/alembic.ini upgrade head
 
-# Удалить индекс в ES
-uv run src/elastic/scripts/delete_index.py
+# Удалить индексы в ES
+uv run src/elastic/scripts/delete_indices.py
 ```
 
 
@@ -130,8 +130,8 @@ src/
 │   ├── repository/     # Слой доступа к данным
 │   └── scripts/        # Утилиты (создание БД, загрузка данных)
 ├── elastic/
-│   ├── service.py      # Elasticsearch-клиент
-│   └── scripts/        # Утилиты (создание/удаление индекса, загрузка)
+│   ├── service.py      # Elasticsearch-клиент и миграции
+│   └── scripts/        # Утилиты (миграции, удаление индексов, загрузка)
 ├── routes/             # Обработчики запросов
 ├── middleware/         
 └── exceptions.py       # Доменные исключения

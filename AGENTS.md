@@ -24,9 +24,9 @@ Stack used:
     - `routes/` — route handlers with sub-routers per resource;
 - `tests/`:
     - `conftest.py` — shared fixtures:
-        - config and test database are module-scoped;
+        - config and test database and ES indices are module-scoped;
         - test app and client are test-scoped;
-        - db data is truncated after each test;
+        - db and ES data is truncated after each test;
     - `mocks/`:
         - data generation classes;
         - db operations;
@@ -43,6 +43,15 @@ Stack used:
     - OpenAPI docs for the route must correctly reflect all of its responses;
     - 404 responses are explicitly handled by the route handlers;
 - Pydantic models live in `src/models/`, SQLAlchemy ORM models in `src/db/models.py`;
+- ElasticSearch migrations:
+    - are managed by `ElasticMigrations` class available via `ElasticService.migrations`;
+    - each migration revision is implemented as subclass of `RevisionBase`:
+        - migrations must use index names from the app config available via parent `ElasticService` object;
+        - `upgrade`:
+            - should try to throw where applicable to reduce the risk of out of order errors;
+            - new indices should use aliases, so that they could be updated in future revisions via reindex + alias change;
+        - `downgrade`:
+            - should try to be idempotent and allow partial rollback of the applied changes, so that it's possible to revert changes, if they didn't apply properly
 - error messages, comments (including separation comments) and README are in Russian; code is in English;
 
 - tests:
@@ -71,14 +80,14 @@ uv run src/db/scripts/app_db.py --delete-existing
 
 ### Elastic Management
 ```bash
-# Create document index
-uv run src/elastic/scripts/create_index.py
+# Run Elasticsearch migrations (create indices)
+uv run src/elastic/scripts/migrate.py --current base --to head
 
 # Ingest documents into index (only after they're added to DB)
 uv run src/elastic/scripts/ingest_documents.py
 
-# Delete document index
-uv run src/elastic/scripts/delete_index.py
+# Delete all Elasticsearch indices
+uv run src/elastic/scripts/delete_indices.py
 ```
 
 
@@ -111,14 +120,14 @@ docker compose exec api uv run src/db/scripts/app_db.py --delete-existing
 
 ### Elastic Management
 ```bash
-# Create document index
-docker compose exec api uv run src/elastic/scripts/create_index.py
+# Run Elasticsearch migrations (create indices)
+docker compose exec api uv run src/elastic/scripts/migrate.py --current base --to head
 
 # Ingest documents into index (only after they're added to DB)
 docker compose exec api uv run src/elastic/scripts/ingest_documents.py
 
-# Delete document index
-docker compose exec api uv run src/elastic/scripts/delete_index.py
+# Delete all Elasticsearch indices
+docker compose exec api uv run src/elastic/scripts/delete_indices.py
 ```
 
 
