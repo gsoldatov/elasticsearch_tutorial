@@ -39,6 +39,7 @@ def test_config(test_uuid: str) -> Config:
     config = get_config(".env.example")
     config.db_app_database = f"{config.db_app_database}_test_{test_uuid}"
     config.es_documents_index_name = f"{config.es_documents_index_name}_test_{test_uuid}"
+    config.es_blogposts_index_name = f"{config.es_blogposts_index_name}_test_{test_uuid}"
     return config
 
 

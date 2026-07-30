@@ -12,9 +12,11 @@ async def test_upgrade_creates_index_with_correct_settings(
     test_config: Config,
 ):
     """Миграция создаёт индекс с корректными настройками и маппингом."""
-    saved = test_config.es_documents_index_name
-    idx = test_config.es_documents_index_name = f"{saved}_0001_up"
-    es = ElasticService(test_config, refresh=True)
+    cfg = Config(**{
+        **test_config.model_dump(),
+        "es_documents_index_name": f"{test_config.es_documents_index_name}_0001_up",
+    })
+    es = ElasticService(cfg, refresh=True)
     try:
         await es.migrations.upgrade(current="base", to="1")
 
@@ -27,16 +29,17 @@ async def test_upgrade_creates_index_with_correct_settings(
     finally:
         await es.migrations.delete_indices()
         await es.close()
-        test_config.es_documents_index_name = saved
 
 
 async def test_upgrade_index_already_exists_raises(
     test_config: Config,
 ):
     """Повторный upgrade падает — индекс уже существует."""
-    saved = test_config.es_documents_index_name
-    idx = test_config.es_documents_index_name = f"{saved}_0001_up2"
-    es = ElasticService(test_config)
+    cfg = Config(**{
+        **test_config.model_dump(),
+        "es_documents_index_name": f"{test_config.es_documents_index_name}_0001_up2",
+    })
+    es = ElasticService(cfg)
     try:
         await es.migrations.upgrade(current="base", to="1")
 
@@ -45,7 +48,6 @@ async def test_upgrade_index_already_exists_raises(
     finally:
         await es.migrations.delete_indices()
         await es.close()
-        test_config.es_documents_index_name = saved
 
 
 # ── downgrade ──────────────────────────────────────────────────────────────
@@ -55,28 +57,31 @@ async def test_downgrade_deletes_index(
     test_config: Config,
 ):
     """downgrade удаляет индекс."""
-    saved = test_config.es_documents_index_name
-    idx = test_config.es_documents_index_name = f"{saved}_0001_down"
-    es = ElasticService(test_config)
+    cfg = Config(**{
+        **test_config.model_dump(),
+        "es_documents_index_name": f"{test_config.es_documents_index_name}_0001_down",
+    })
+    es = ElasticService(cfg)
     try:
         await es.migrations.upgrade(current="base", to="1")
         await es.migrations.downgrade(current="1", to="base")
 
-        exists = await es.client.indices.exists(index=idx)
+        exists = await es.client.indices.exists(index=cfg.es_documents_index_name)
         assert not exists
     finally:
         await es.migrations.delete_indices()
         await es.close()
-        test_config.es_documents_index_name = saved
 
 
 async def test_downgrade_idempotent(
     test_config: Config,
 ):
     """Повторный downgrade не падает — индекс уже удалён."""
-    saved = test_config.es_documents_index_name
-    idx = test_config.es_documents_index_name = f"{saved}_0001_down2"
-    es = ElasticService(test_config)
+    cfg = Config(**{
+        **test_config.model_dump(),
+        "es_documents_index_name": f"{test_config.es_documents_index_name}_0001_down2",
+    })
+    es = ElasticService(cfg)
     try:
         await es.migrations.upgrade(current="base", to="1")
         await es.migrations.downgrade(current="1", to="base")
@@ -85,4 +90,3 @@ async def test_downgrade_idempotent(
     finally:
         await es.migrations.delete_indices()
         await es.close()
-        test_config.es_documents_index_name = saved

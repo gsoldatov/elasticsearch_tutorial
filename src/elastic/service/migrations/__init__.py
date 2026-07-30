@@ -5,6 +5,9 @@ from src.elastic.service.migrations.revisions.base import RevisionBase
 from src.elastic.service.migrations.revisions.r_0001_documents import (
     Revision0001Documents,
 )
+from src.elastic.service.migrations.revisions.r_0002_blogposts import (
+    Revision0002Blogposts,
+)
 
 if TYPE_CHECKING:
     from src.elastic.service import ElasticService
@@ -17,6 +20,7 @@ class ElasticMigrations(ElasticMigrationsBase):
         self._es = es
         self._revisions: list[RevisionBase] = [
             Revision0001Documents(es),
+            Revision0002Blogposts(es),
         ]
 
     async def upgrade(self, current: str, to: str) -> None:
@@ -38,11 +42,20 @@ class ElasticMigrations(ElasticMigrationsBase):
             await self._revisions[i].downgrade()
 
     async def delete_indices(self) -> None:
-        """Удаляет все индексы, перечисленные в конфиге."""
+        """Удаляет все индексы и связанные pipelines."""
         for index_name in self._es._config.es_indices.values():
+            # Удаление индексов по паттерну (позволяет удалять
+            # версионированные индексы и их алиасы)
             await self._es.client.options(ignore_status=[404]).indices.delete(
-                index=index_name,
+                index=f"{index_name}*",
+                allow_no_indices=True,
+                expand_wildcards="all",
             )
+        # Удаление ingest pipeline (после индексов — снимаем ссылки)
+        pipeline_name = f"{self._es._config.es_blogposts_index_name}_pipeline"
+        await self._es.client.options(ignore_status=[404]).ingest.delete_pipeline(
+            id=pipeline_name,
+        )
 
     def _resolve_revision(self, revision: str) -> int:
         """Преобразует 'base' / 'head' / число в индекс списка ревизий.

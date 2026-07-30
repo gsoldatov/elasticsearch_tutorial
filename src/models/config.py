@@ -29,6 +29,7 @@ class Config(BaseSettings):
     es_port: Annotated[int, Field(gt=0, lt=65536)]
     es_superuser_password: Annotated[str, Field(min_length=1)]
     es_documents_index_name: Annotated[str, Field(min_length=1)]
+    es_blogposts_index_name: Annotated[str, Field(min_length=1)]
 
     @property
     def db_app_url(self) -> str:

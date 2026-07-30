@@ -13,24 +13,28 @@ async def test_upgrade_base_to_head_creates_index(
     """upgrade с base на head создаёт все индексы."""
     from src.elastic import ElasticService
 
-    assert len(test_config.es_indices) == 1, (
+    assert len(test_config.es_indices) == 2, (
         "Добавлен новый ES-индекс — обнови этот тест."
     )
 
-    saved = test_config.es_documents_index_name
-    test_config.es_documents_index_name = f"{saved}_mig_upgrade"
-    es = ElasticService(test_config)
+    cfg = Config(**{
+        **test_config.model_dump(),
+        **{
+            field: f"{value}_mig_upgrade"
+            for field, value in test_config.es_indices.items()
+        },
+    })
+    es = ElasticService(cfg)
     try:
         await es.migrations.upgrade(current="base", to="head")
 
-        for index_name in test_config.es_indices.values():
+        for index_name in cfg.es_indices.values():
             assert await es.client.indices.exists(index=index_name), (
                 f"Индекс {index_name} не был создан"
             )
     finally:
         await es.migrations.delete_indices()
         await es.close()
-        test_config.es_documents_index_name = saved
 
 
 async def test_upgrade_same_revision_noop(
