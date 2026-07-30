@@ -10,7 +10,7 @@ from tests.mocks.elastic_operations import ElasticOperations
 
 
 async def test_search_on_nonexistent_index_raises(
-    real_elastic_service: ElasticService,
+    elastic_service: ElasticService,
     test_config: Config,
 ):
     """Поиск по несуществующему индексу — ошибка."""
@@ -18,42 +18,42 @@ async def test_search_on_nonexistent_index_raises(
     test_config.es_documents_index_name = "nonexistent_index_name"
     try:
         with pytest.raises(NotFoundError):
-            await real_elastic_service.documents.search("запрос")
+            await elastic_service.documents.search("запрос")
     finally:
         test_config.es_documents_index_name = saved
 
 
 async def test_search_empty_index_returns_empty_list(
-    real_elastic_service: ElasticService,
+    elastic_service: ElasticService,
 ):
     """Поиск по пустому индексу возвращает пустой список."""
-    result = await real_elastic_service.documents.search("запрос")
+    result = await elastic_service.documents.search("запрос")
     assert result == []
 
 
 async def test_search_match_phrase_exact_ordering(
-    real_elastic_service: ElasticService,
+    elastic_service: ElasticService,
     elastic_operations: ElasticOperations,
 ):
     """match_phrase требует точного порядка слов."""
     elastic_operations.documents.index_document(1, "быстрая коричневая лиса")
 
-    result = await real_elastic_service.documents.search("коричневая лиса")
+    result = await elastic_service.documents.search("коричневая лиса")
     assert result == [1]
 
-    result = await real_elastic_service.documents.search("лиса коричневая")
+    result = await elastic_service.documents.search("лиса коричневая")
     assert result == []
 
 
 async def test_search_finds_indexed_document(
-    real_elastic_service: ElasticService,
+    elastic_service: ElasticService,
     elastic_operations: ElasticOperations,
 ):
     """Поиск находит проиндексированный документ."""
     elastic_operations.documents.index_document(1, "пример текста для поиска")
     elastic_operations.documents.index_document(2, "другой документ")
 
-    result = await real_elastic_service.documents.search("поиска")
+    result = await elastic_service.documents.search("поиска")
     assert result == [1]
 
 
@@ -61,14 +61,14 @@ async def test_search_finds_indexed_document(
 
 
 async def test_delete_nonexistent_document_does_not_raise(
-    real_elastic_service: ElasticService,
+    elastic_service: ElasticService,
 ):
     """Удаление несуществующего документа — не падает (404 игнорируется)."""
-    await real_elastic_service.documents.delete(99999)
+    await elastic_service.documents.delete(99999)
 
 
 async def test_delete_on_nonexistent_index_raises(
-    real_elastic_service: ElasticService,
+    elastic_service: ElasticService,
     test_config: Config,
 ):
     """Удаление до создания индекса — ошибка (индекс не существует)."""
@@ -76,24 +76,24 @@ async def test_delete_on_nonexistent_index_raises(
     test_config.es_documents_index_name = "nonexistent_index_name"
     try:
         with pytest.raises(NotFoundError):
-            await real_elastic_service.documents.delete(1)
+            await elastic_service.documents.delete(1)
     finally:
         test_config.es_documents_index_name = saved
 
 
 async def test_delete_removes_document(
-    real_elastic_service: ElasticService,
+    elastic_service: ElasticService,
     elastic_operations: ElasticOperations,
 ):
     """Удаление документа убирает его из результатов поиска."""
     elastic_operations.documents.index_document(1, "документ для удаления")
 
-    result = await real_elastic_service.documents.search("удаления")
+    result = await elastic_service.documents.search("удаления")
     assert result == [1]
 
-    await real_elastic_service.documents.delete(1)
+    await elastic_service.documents.delete(1)
 
-    result = await real_elastic_service.documents.search("удаления")
+    result = await elastic_service.documents.search("удаления")
     assert result == []
 
 
@@ -101,31 +101,31 @@ async def test_delete_removes_document(
 
 
 async def test_index_documents_bulk(
-    real_elastic_service: ElasticService,
+    elastic_service: ElasticService,
     elastic_operations: ElasticOperations,
 ):
     """Массовая индексация: все документы попадают в индекс."""
     docs = [{"id": i, "text": f"документ номер {i}"} for i in range(50)]
-    await real_elastic_service.documents.index_documents(docs)
+    await elastic_service.documents.index_documents(docs)
 
-    result = await real_elastic_service.documents.search("документ номер 7")
+    result = await elastic_service.documents.search("документ номер 7")
     assert result == [7]
 
 
 async def test_index_duplicate_id_overwrites(
-    real_elastic_service: ElasticService,
+    elastic_service: ElasticService,
     elastic_operations: ElasticOperations,
 ):
     """Повторная индексация с тем же id перезаписывает документ."""
-    await real_elastic_service.documents.index_documents([
+    await elastic_service.documents.index_documents([
         {"id": 1, "text": "первая версия текста"},
     ])
-    await real_elastic_service.documents.index_documents([
+    await elastic_service.documents.index_documents([
         {"id": 1, "text": "вторая версия текста"},
     ])
 
-    result_first = await real_elastic_service.documents.search("первая")
+    result_first = await elastic_service.documents.search("первая")
     assert result_first == []
 
-    result_second = await real_elastic_service.documents.search("вторая")
+    result_second = await elastic_service.documents.search("вторая")
     assert result_second == [1]

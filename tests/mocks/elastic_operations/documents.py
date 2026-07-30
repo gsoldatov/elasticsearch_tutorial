@@ -43,10 +43,3 @@ class ElasticDocumentsOperations:
     def count(self) -> int:
         result = self._es._client.count(index=self._es._index)
         return result["count"]
-
-    def delete_all(self) -> None:
-        self._es._client.options(ignore_status=404).delete_by_query(
-            index=self._es._index,
-            body={"query": {"match_all": {}}},
-            refresh=True,
-        )

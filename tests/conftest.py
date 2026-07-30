@@ -1,12 +1,14 @@
 import sys
 from pathlib import Path
+from typing import AsyncGenerator, Generator
 from uuid import uuid4
 
 import psycopg
 import pytest
 from alembic import command
 from alembic.config import Config as AlembicConfig
-from elasticsearch import Elasticsearch
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 from psycopg.rows import dict_row
 
 _project_root = Path(__file__).resolve().parents[1]
@@ -16,6 +18,7 @@ if str(_project_root) not in sys.path:
 from src.app import create_app
 from src.config import get_config
 from src.db.scripts.app_db import DBManager
+from src.elastic import ElasticService
 from src.models.config import Config
 from tests.mocks.data_generator import DataGenerator
 from tests.mocks.db_operations import DBOperations
@@ -40,7 +43,7 @@ def test_config(test_uuid: str) -> Config:
 
 
 @pytest.fixture(scope="module")
-def test_db(test_config: Config):
+def test_db(test_config: Config) -> Generator[psycopg.Connection, None, None]:
     """Создаёт тестовую БД и возвращает autocommit-соединение с dict_row."""
     with DBManager(test_config) as db_manager:
         db_manager.create_user()
@@ -62,7 +65,7 @@ def test_db(test_config: Config):
 
 
 @pytest.fixture(scope="module")
-def test_db_migrations(test_db: psycopg.Connection, test_config: Config):
+def test_db_migrations(test_db: psycopg.Connection, test_config: Config) -> None:
     """Применяет миграции к тестовой БД."""
     alembic_dir = _project_root / "src" / "db" / "alembic"
     alembic_ini = alembic_dir / "alembic.ini"
@@ -76,23 +79,14 @@ def test_db_migrations(test_db: psycopg.Connection, test_config: Config):
 
 
 @pytest.fixture(scope="module")
-async def test_elastic_index(test_config: Config):
-    """Создаёт тестовый ES-индекс и возвращает клиент с именем индекса."""
-    from src.elastic import ElasticService
-
-    sync_client = Elasticsearch(
-        test_config.es_url,
-        basic_auth=("elastic", test_config.es_superuser_password),
-    )
-    index_name = test_config.es_documents_index_name
-
+async def test_elastic_migrations(test_config: Config) -> None:
+    """Применяет ES-миграции к тестовым индексам."""
     es = ElasticService(test_config)
     try:
         await es.migrations.upgrade(current="base", to="head")
-        yield sync_client, index_name
+        yield
     finally:
         await es.migrations.delete_indices()
-        sync_client.close()
         await es.close()
 
 
@@ -100,55 +94,56 @@ async def test_elastic_index(test_config: Config):
 
 
 @pytest.fixture
-def clean_db(test_db: psycopg.Connection):
+def clean_db(test_db: psycopg.Connection) -> Generator[psycopg.Connection, None, None]:
     """Очищает таблицы после каждого теста."""
     yield test_db
     test_db.execute("TRUNCATE TABLE documents RESTART IDENTITY CASCADE")
 
 
 @pytest.fixture
-def elastic_mock() -> ElasticServiceMock:
+def elastic_service_mock() -> ElasticServiceMock:
     return ElasticServiceMock()
 
 
 @pytest.fixture
-def elastic_operations(test_elastic_index) -> ElasticOperations:
-    client, index_name = test_elastic_index
-    return ElasticOperations(client, index_name)
+def elastic_operations(test_config: Config, test_elastic_migrations: None) -> Generator[ElasticOperations, None, None]:
+    ops = ElasticOperations(test_config)
+    try:
+        yield ops
+    finally:
+        ops.close()
 
 
 @pytest.fixture
-async def real_elastic_service(test_config: Config, test_elastic_index):
-    """
-    ElasticService, использующий индекс из test_elastic_index.
-    
-    Очищает индекс после теста.
-    """
-    from src.elastic import ElasticService
-
-    client, index_name = test_elastic_index
+async def elastic_service(
+    test_config: Config,
+    elastic_operations: ElasticOperations,
+) -> AsyncGenerator[ElasticService, None]:
+    """ElasticService с очисткой индексов после каждого теста."""
     es = ElasticService(test_config, refresh=True)
     try:
         yield es
     finally:
         try:
-            ElasticOperations(client, index_name).documents.delete_all()
+            elastic_operations.truncate_indices()
         except Exception:
             pass
         await es.close()
 
 
 @pytest.fixture
-async def test_app(test_db_migrations, test_config: Config, elastic_mock: ElasticServiceMock):
-    app = create_app(test_config, elastic_service=elastic_mock)
+async def test_app(
+    test_db_migrations: None,
+    test_config: Config,
+    elastic_service_mock: ElasticServiceMock,
+) -> AsyncGenerator[FastAPI, None]:
+    app = create_app(test_config, elastic_service=elastic_service_mock)
     async with app.router.lifespan_context(app):
         yield app
 
 
 @pytest.fixture
-async def test_client(test_app):
-    from httpx import ASGITransport, AsyncClient
-
+async def test_client(test_app: FastAPI) -> AsyncGenerator[AsyncClient, None]:
     async with AsyncClient(
         transport=ASGITransport(app=test_app), base_url="http://test"
     ) as client:
@@ -161,5 +156,5 @@ def data_generator() -> DataGenerator:
 
 
 @pytest.fixture
-def db_operations(clean_db) -> DBOperations:
+def db_operations(clean_db: psycopg.Connection) -> DBOperations:
     return DBOperations(clean_db)
