@@ -37,45 +37,51 @@
     + refactor ElasticService and move out documents functionality;
     + move search endpoint into documents' router;
 
-- implement additional functionality:
-    + add Elastic migrations definition (move out of service);
++ add Elastic migrations definition (move out of service);
 
-    - add another dataset:
-        - several indexed fields (title, text, tags, metrics for aggregation, document timestamp, ???);
-        ? mock data + ingest;
-        - insertion script;
+- full-text search on another dataset:    
+    - `blogposts` dataset and index:
+        + several indexed fields (title, text, tags, timestamp);
+        - models and ES migration;
+        - data generation script (with Faker);
+        - ingestion script;
     
-    - add endpoints for another dataset:
-        - CRUD:     // postgresql + elastic
-            - upsert:
-                - partial;
-                - optimistic (if_seq_no + if_primary_term);
+    - skip creating a DB session for `blogposts`;
+    - skip creating a mock DB in `blogposts` tests;
+
+    - add endpoints for blogposts:
+        - create;
+        - read;
+        - update:
+            - partial;
+            - optimistic (if_seq_no + if_primary_term);
+        - delete;
         
-        - search:
-            - full-text search:
-                - search by multiple fields;
-                    - case insensitive;
-                    ? use different rules;
-                    ? use a more specific set of analyzers;
-                - filter by time;
-                - order;
-                - sort;
-                - limit + pagination;
-            
-            - fuzzy search;
-    
-        - aggregations:
-            - see above
-            // https://www.elastic.co/docs/explore-analyze/query-filter/aggregations/tutorial-analyze-ecommerce-data-with-aggregations-using-query-dsl
-            ? bool query (`must` + `should` + ???);
-            ???
+        - full-text search:
+            - search by multiple fields;
+                - case insensitive;
+                ? use different rules;
+                ? use a more specific set of analyzers;
+            - filter by time;
+            - order;
+            - sort;
+            - limit + pagination;
+        
+        - fuzzy search;
 
-    - vector search:
+- aggregations:
+    - add a dataset with metrics and dimensions to filter on;
+    - see above
+    // https://www.elastic.co/docs/explore-analyze/query-filter/aggregations/tutorial-analyze-ecommerce-data-with-aggregations-using-query-dsl
+    ? bool query (`must` + `should` + ???);
+    ???
+
+- vector search:
     - see above;
-        ? update index script for adding vector mapping without recreating index;   // add migrations?
+        ? update blogposts index with vector mapping(-s) without recreating index;
         ? hybrid search;
         - ingest data;
         - search data;
         
     
-    ? geospatial data;
+? geospatial data;
