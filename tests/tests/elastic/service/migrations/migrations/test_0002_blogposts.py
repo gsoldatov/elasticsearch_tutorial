@@ -21,7 +21,10 @@ async def test_upgrade_creates_index_and_pipeline(
         await es.migrations.upgrade(current="1", to="2")
 
         alias = cfg.es_blogposts_index_name
+        real_index = f"{alias}_v1"
 
+        # v1-индекс существует
+        assert await es.client.indices.exists(index=real_index)
         # Alias существует
         assert await es.client.indices.exists(index=alias)
         # Pipeline существует
@@ -135,6 +138,11 @@ async def test_downgrade_deletes_index_and_pipeline(
         await es.migrations.downgrade(current="2", to="1")
 
         alias = cfg.es_blogposts_index_name
+        real_index = f"{alias}_v1"
+
+        # v1-индекс удалён
+        assert not await es.client.indices.exists(index=real_index)
+        # Alias удалён
         assert not await es.client.indices.exists(index=alias)
 
         pipeline_name = f"{alias}_pipeline"
