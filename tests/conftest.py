@@ -9,7 +9,7 @@ from alembic import command
 from alembic.config import Config as AlembicConfig
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from psycopg.rows import dict_row
+from psycopg.rows import DictRow, dict_row
 
 _project_root = Path(__file__).resolve().parents[1]
 if str(_project_root) not in sys.path:
@@ -44,15 +44,15 @@ def test_config(test_uuid: str) -> Config:
 
 
 @pytest.fixture(scope="module")
-def test_db(test_config: Config) -> Generator[psycopg.Connection, None, None]:
+def test_db(test_config: Config) -> Generator[psycopg.Connection[DictRow], None, None]:
     """Создаёт тестовую БД и возвращает autocommit-соединение с dict_row."""
     with DBManager(test_config) as db_manager:
         db_manager.create_user()
         db_manager.create_db(test_config.db_app_database)
 
-        test_conn = None
+        test_conn: psycopg.Connection[DictRow] | None = None
         try:
-            test_conn = psycopg.connect(
+            test_conn = psycopg.Connection[DictRow].connect(
                 test_config.db_app_url,
                 autocommit=True,
                 row_factory=dict_row,
@@ -76,11 +76,12 @@ def test_db_migrations(test_db: psycopg.Connection, test_config: Config) -> None
     alembic_cfg.attributes["custom_config"] = test_config
 
     command.upgrade(alembic_cfg, "head")
-    yield
 
 
 @pytest.fixture(scope="module")
-async def test_elastic_migrations(test_config: Config) -> None:
+async def test_elastic_migrations(
+    test_config: Config
+) -> AsyncGenerator[None, None]:
     """Применяет ES-миграции к тестовым индексам."""
     es = ElasticService(test_config)
     try:
