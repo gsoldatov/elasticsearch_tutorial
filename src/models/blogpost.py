@@ -16,9 +16,11 @@ class BlogpostCreate(BaseModel):
 
     model_config = ConfigDict(strict=True)
 
+    id: str | None = None
     title: _Title
     text: _Text
     tags: _Tags
+    updated_at: datetime | None = None
 
 
 class BlogpostUpdate(BaseModel, AnyOf):
@@ -29,6 +31,7 @@ class BlogpostUpdate(BaseModel, AnyOf):
     title: _Title | None = None
     text: _Text | None = None
     tags: _Tags | None = None
+    updated_at: datetime | None = None
 
 
 class Blogpost(BaseModel):

@@ -99,6 +99,32 @@ class TestBlogpostCreate:
         assert bp.text == data["text"]
         assert bp.tags == data["tags"]
 
+    def test_defaults_id_and_updated_at_none(self):
+        bp = BlogpostCreate(**_valid_create_data())
+        assert bp.id is None
+        assert bp.updated_at is None
+
+    def test_with_optional_id(self):
+        bp = BlogpostCreate(**{**_valid_create_data(), "id": "my-custom-id"})
+        assert bp.id == "my-custom-id"
+
+    def test_with_optional_updated_at(self):
+        now = datetime.now(timezone.utc)
+        bp = BlogpostCreate(**{**_valid_create_data(), "updated_at": now})
+        assert bp.updated_at == now
+
+    def test_with_both_optionals(self):
+        now = datetime.now(timezone.utc)
+        bp = BlogpostCreate(
+            **_valid_create_data(), id="abc", updated_at=now,
+        )
+        assert bp.id == "abc"
+        assert bp.updated_at == now
+
+    def test_strict_id_rejects_int(self):
+        with pytest.raises(ValidationError):
+            BlogpostCreate(**{**_valid_create_data(), "id": 123})
+
 
 # ── BlogpostUpdate ─────────────────────────────────────────────────────────
 
@@ -113,7 +139,7 @@ class TestBlogpostUpdate:
 
     def test_all_fields_explicit_none_raises(self):
         with pytest.raises(ValidationError) as exc_info:
-            BlogpostUpdate(title=None, text=None, tags=None)
+            BlogpostUpdate(title=None, text=None, tags=None, updated_at=None)
         assert "At least one non-null field" in str(exc_info.value)
 
     def test_title_empty_raises(self):
@@ -181,6 +207,21 @@ class TestBlogpostUpdate:
         assert bp.title == "T"
         assert bp.text == "X"
         assert bp.tags == ["a"]
+
+    def test_only_updated_at_valid(self):
+        now = datetime.now(timezone.utc)
+        bp = BlogpostUpdate(updated_at=now)
+        assert bp.updated_at == now
+
+    def test_updated_at_with_title(self):
+        now = datetime.now(timezone.utc)
+        bp = BlogpostUpdate(updated_at=now, title="T")
+        assert bp.updated_at == now
+        assert bp.title == "T"
+
+    def test_strict_updated_at_rejects_non_datetime(self):
+        with pytest.raises(ValidationError):
+            BlogpostUpdate(updated_at=123)
 
 
 # ── Blogpost ───────────────────────────────────────────────────────────────
