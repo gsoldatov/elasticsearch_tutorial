@@ -31,6 +31,22 @@ class ElasticBlogpostsServiceBase(ABC):
     async def index_blogposts(self, blogposts: list[Blogpost]) -> None:
         """Массовая индексация блогпостов."""
 
+    @abstractmethod
+    async def create(self, data: dict) -> Blogpost:
+        """Создание блогпоста. Возвращает созданный объект."""
+
+    @abstractmethod
+    async def get(self, blogpost_id: str) -> Blogpost:
+        """Получение блогпоста по id."""
+
+    @abstractmethod
+    async def update(self, blogpost_id: str, data: dict) -> Blogpost:
+        """Частичное обновление блогпоста с optimistic lock."""
+
+    @abstractmethod
+    async def delete(self, blogpost_id: str) -> None:
+        """Удаление блогпоста."""
+
 
 class ElasticServiceBase(ABC):
     """Абстрактный класс для фасада ES-сервиса."""

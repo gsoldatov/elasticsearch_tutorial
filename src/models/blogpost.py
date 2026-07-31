@@ -1,7 +1,8 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic.functional_validators import BeforeValidator
 
 from src.models.common import AnyOf
 
@@ -9,6 +10,16 @@ _Tag = Annotated[str, Field(min_length=1, max_length=64)]
 _Title = Annotated[str, Field(min_length=1, max_length=256)]
 _Text = Annotated[str, Field(min_length=0, max_length=8192)]
 _Tags = Annotated[list[_Tag], Field(min_length=0, max_length=100)]
+
+
+def _coerce_iso_datetime(v: Any) -> Any:
+    """Преобразует строку ISO в datetime для strict-режима."""
+    if isinstance(v, str):
+        return datetime.fromisoformat(v)
+    return v
+
+
+_UpdatedAt = Annotated[datetime, BeforeValidator(_coerce_iso_datetime)]
 
 
 class BlogpostCreate(BaseModel):
@@ -20,7 +31,7 @@ class BlogpostCreate(BaseModel):
     title: _Title
     text: _Text
     tags: _Tags
-    updated_at: datetime | None = None
+    updated_at: _UpdatedAt | None = None
 
 
 class BlogpostUpdate(BaseModel, AnyOf):
@@ -31,7 +42,7 @@ class BlogpostUpdate(BaseModel, AnyOf):
     title: _Title | None = None
     text: _Text | None = None
     tags: _Tags | None = None
-    updated_at: datetime | None = None
+    updated_at: _UpdatedAt | None = None
 
 
 class Blogpost(BaseModel):
@@ -43,4 +54,4 @@ class Blogpost(BaseModel):
     title: _Title
     text: _Text
     tags: _Tags
-    updated_at: datetime
+    updated_at: _UpdatedAt

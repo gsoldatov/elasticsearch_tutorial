@@ -50,12 +50,12 @@
     - skip creating a mock DB in `blogposts` tests;
 
     - add endpoints for blogposts:
-        - create;
-        - read;
-        - update:
-            - partial;
-            - optimistic (if_seq_no + if_primary_term);
-        - delete;
+        + create;
+        + read;
+        + update:
+            + partial;
+            + optimistic (if_seq_no + if_primary_term);
+        + delete;
         
         - full-text search:
             - search by multiple fields;

@@ -153,6 +153,29 @@ async def test_client(test_app: FastAPI) -> AsyncGenerator[AsyncClient, None]:
 
 
 @pytest.fixture
+async def test_app_no_db(
+    test_config: Config,
+    elastic_service_mock: ElasticServiceMock,
+) -> AsyncGenerator[FastAPI, None]:
+    """Приложение с замоканным ES и без БД."""
+    app = create_app(test_config, elastic_service=elastic_service_mock)
+    async with app.router.lifespan_context(app):
+        # lifespan установил engine — обнуляем, чтобы middleware пропускал БД
+        app.state.engine = None
+        yield app
+
+
+@pytest.fixture
+async def test_client_no_db(
+    test_app_no_db: FastAPI,
+) -> AsyncGenerator[AsyncClient, None]:
+    async with AsyncClient(
+        transport=ASGITransport(app=test_app_no_db), base_url="http://test"
+    ) as client:
+        yield client
+
+
+@pytest.fixture
 def data_generator() -> DataGenerator:
     return DataGenerator()
 

@@ -1,9 +1,13 @@
+from datetime import datetime, timezone
+
 from src.elastic import (
     ElasticBlogpostsServiceBase,
     ElasticDocumentsServiceBase,
     ElasticMigrationsBase,
     ElasticServiceBase,
 )
+from src.exceptions import NotFoundException, UpdateConflict
+from src.models.blogpost import Blogpost
 
 
 class ElasticDocumentsServiceMock(ElasticDocumentsServiceBase):
@@ -37,9 +41,72 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
 
     def __init__(self) -> None:
         self.index_blogposts_calls: list[dict] = []
+        self.create_calls: list[dict] = []
+        self.get_calls: list[dict] = []
+        self.update_calls: list[dict] = []
+        self.delete_calls: list[dict] = []
+
+        self._blogposts: dict[str, Blogpost] = {}
+        self._id_counter: int = 0
+
+        self.raise_on_create: Exception | None = None
+        self.raise_on_get: Exception | None = None
+        self.raise_on_update: Exception | None = None
+        self.raise_on_delete: Exception | None = None
+
+    def _next_id(self) -> str:
+        self._id_counter += 1
+        return f"mock-{self._id_counter}"
 
     async def index_blogposts(self, blogposts: list) -> None:
         self.index_blogposts_calls.append({"blogposts": blogposts})
+
+    async def create(self, data: dict) -> Blogpost:
+        if self.raise_on_create is not None:
+            raise self.raise_on_create
+        self.create_calls.append({"data": dict(data)})
+        doc_id = data.get("id")
+        if doc_id is not None and doc_id in self._blogposts:
+            raise UpdateConflict(
+                f"Блогпост с id '{doc_id}' уже существует."
+            )
+        bp = Blogpost(
+            id=doc_id if doc_id is not None else self._next_id(),
+            title=data["title"],
+            text=data["text"],
+            tags=data.get("tags", []),
+            updated_at=data.get(
+                "updated_at",
+                datetime.now(timezone.utc),
+            ),
+        )
+        self._blogposts[bp.id] = bp
+        return bp
+
+    async def get(self, blogpost_id: str) -> Blogpost:
+        if self.raise_on_get is not None:
+            raise self.raise_on_get
+        self.get_calls.append({"blogpost_id": blogpost_id})
+        if blogpost_id not in self._blogposts:
+            raise NotFoundException(f"Блогпост {blogpost_id} не найден")
+        return self._blogposts[blogpost_id]
+
+    async def update(self, blogpost_id: str, data: dict) -> Blogpost:
+        if self.raise_on_update is not None:
+            raise self.raise_on_update
+        self.update_calls.append({"blogpost_id": blogpost_id, "data": dict(data)})
+        if blogpost_id not in self._blogposts:
+            raise NotFoundException(f"Блогпост {blogpost_id} не найден")
+        bp = self._blogposts[blogpost_id]
+        updated = bp.model_copy(update=data)
+        self._blogposts[blogpost_id] = updated
+        return updated
+
+    async def delete(self, blogpost_id: str) -> None:
+        if self.raise_on_delete is not None:
+            raise self.raise_on_delete
+        self.delete_calls.append({"blogpost_id": blogpost_id})
+        self._blogposts.pop(blogpost_id, None)
 
 
 class ElasticMigrationsMock(ElasticMigrationsBase):
