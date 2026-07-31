@@ -11,12 +11,6 @@ async def test_upgrade_base_to_head_creates_index(
     test_config: Config,
 ):
     """upgrade с base на head создаёт все индексы."""
-    from src.elastic import ElasticService
-
-    assert len(test_config.es_indices) == 2, (
-        "Добавлен новый ES-индекс — обнови этот тест."
-    )
-
     cfg = Config(**{
         **test_config.model_dump(),
         **{

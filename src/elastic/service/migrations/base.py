@@ -1,8 +1,14 @@
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.elastic.service.migrations.revisions.base import RevisionBase
 
 
 class ElasticMigrationsBase(ABC):
     """Абстрактный класс фасада миграций ES."""
+
+    _revisions: list["RevisionBase"]
 
     @abstractmethod
     async def upgrade(self, current: str, to: str) -> None:
