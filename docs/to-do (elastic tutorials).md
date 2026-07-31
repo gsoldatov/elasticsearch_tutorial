@@ -40,11 +40,11 @@
 + add Elastic migrations definition (move out of service);
 
 - full-text search on another dataset:    
-    - `blogposts` dataset and index:
+    + `blogposts` dataset and index:
         + several indexed fields (title, text, tags, timestamp);
-        - models and ES migration;
-        - data generation script (with Faker);
-        - ingestion script;
+        + models and ES migration;
+        + data generation script (with Faker);
+        + ingestion script;
     
     - skip creating a DB session for `blogposts`;
     - skip creating a mock DB in `blogposts` tests;

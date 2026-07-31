@@ -3,6 +3,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
+from src.models.blogpost import Blogpost
+
 if TYPE_CHECKING:
     from src.elastic.service.migrations.base import ElasticMigrationsBase
 
@@ -22,6 +24,14 @@ class ElasticDocumentsServiceBase(ABC):
         """Массовая индексация документов."""
 
 
+class ElasticBlogpostsServiceBase(ABC):
+    """Абстрактный класс для операций с блогпостами в ES."""
+
+    @abstractmethod
+    async def index_blogposts(self, blogposts: list[Blogpost]) -> None:
+        """Массовая индексация блогпостов."""
+
+
 class ElasticServiceBase(ABC):
     """Абстрактный класс для фасада ES-сервиса."""
 
@@ -29,6 +39,11 @@ class ElasticServiceBase(ABC):
     @abstractmethod
     def documents(self) -> ElasticDocumentsServiceBase:
         """Документные операции."""
+
+    @property
+    @abstractmethod
+    def blogposts(self) -> ElasticBlogpostsServiceBase:
+        """Операции с блогпостами."""
 
     @property
     @abstractmethod

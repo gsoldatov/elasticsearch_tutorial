@@ -1,4 +1,9 @@
-from src.elastic import ElasticDocumentsServiceBase, ElasticMigrationsBase, ElasticServiceBase
+from src.elastic import (
+    ElasticBlogpostsServiceBase,
+    ElasticDocumentsServiceBase,
+    ElasticMigrationsBase,
+    ElasticServiceBase,
+)
 
 
 class ElasticDocumentsServiceMock(ElasticDocumentsServiceBase):
@@ -27,6 +32,16 @@ class ElasticDocumentsServiceMock(ElasticDocumentsServiceBase):
         self.delete_calls.append({"doc_id": doc_id})
 
 
+class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
+    """Заглушка операций с блогпостами elastic-сервиса."""
+
+    def __init__(self) -> None:
+        self.index_blogposts_calls: list[dict] = []
+
+    async def index_blogposts(self, blogposts: list) -> None:
+        self.index_blogposts_calls.append({"blogposts": blogposts})
+
+
 class ElasticMigrationsMock(ElasticMigrationsBase):
     """Заглушка миграций elastic-сервиса."""
 
@@ -45,11 +60,16 @@ class ElasticServiceMock(ElasticServiceBase):
 
     def __init__(self) -> None:
         self._documents = ElasticDocumentsServiceMock()
+        self._blogposts = ElasticBlogpostsServiceMock()
         self._migrations = ElasticMigrationsMock()
 
     @property
     def documents(self) -> ElasticDocumentsServiceMock:
         return self._documents
+
+    @property
+    def blogposts(self) -> ElasticBlogpostsServiceMock:
+        return self._blogposts
 
     @property
     def migrations(self) -> ElasticMigrationsMock:
