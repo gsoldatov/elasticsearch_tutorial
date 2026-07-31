@@ -6,10 +6,14 @@ from src.db.repository import Repository
 
 async def repository_middleware(request: Request, call_next):
     """
-    Создаёт сессию БД и репозиторий на каждый запрос.
+    Создаёт сессию БД и репозиторий.
     При успешном выполнении запроса — коммитит изменения.
     При необработанном исключении — откатывает транзакцию.
     """
+    # Пропуск создания сессии для эндпойнтов, которые её не используют
+    if not request.url.path.startswith("/documents"):
+        return await call_next(request)
+
     engine = request.app.state.engine
     async_session = async_sessionmaker(engine, expire_on_commit=False)
 
