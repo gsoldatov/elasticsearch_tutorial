@@ -10,6 +10,10 @@ class NotFoundException(Exception):
     """Запрашиваемый объект не найден."""
 
 
+class UpdateConflict(Exception):
+    """Конфликт версий при оптимистичном обновлении документа."""
+
+
 class InternalValidationException(Exception):
     """Ошибка внутренней валидации — подменяет Pydantic ValidationError."""
 

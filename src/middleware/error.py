@@ -4,7 +4,7 @@ from sqlalchemy.exc import OperationalError
 
 from elasticsearch import ConnectionError
 
-from src.exceptions import InternalValidationException, NotFoundException
+from src.exceptions import InternalValidationException, NotFoundException, UpdateConflict
 from src.models import ErrorResponse
 
 
@@ -33,6 +33,11 @@ async def error_middleware(request: Request, call_next):
         return JSONResponse(
             status_code=503,
             content=ErrorResponse(detail="Сервис недоступен").model_dump(),
+        )
+    except UpdateConflict as exc:
+        return JSONResponse(
+            status_code=409,
+            content=ErrorResponse(detail=str(exc)).model_dump(),
         )
     except Exception:
         return JSONResponse(
