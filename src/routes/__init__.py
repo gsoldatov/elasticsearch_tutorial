@@ -4,4 +4,4 @@ from src.routes import documents
 
 
 def setup_routes(app: FastAPI) -> None:
-    app.include_router(documents.router)
+    app.include_router(documents.router, prefix="/documents")

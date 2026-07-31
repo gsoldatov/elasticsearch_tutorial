@@ -10,7 +10,7 @@ router = APIRouter(tags=["documents"])
 
 
 @router.get(
-    "/documents/search",
+    "/search",
     response_model=list[Document],
     responses={
         404: {
@@ -35,7 +35,7 @@ async def search(
 
 
 @router.delete(
-    "/documents/{doc_id}",
+    "/{doc_id}",
     status_code=204,
     response_class=Response,
     responses={
