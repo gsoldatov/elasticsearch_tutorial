@@ -26,6 +26,7 @@ services:
       xpack.security.http.ssl.enabled: "false" # HTTP без TLS (только для разработки)
       xpack.license.self_generated.type: basic # Базовая лицензия, без пробных возможностей
       ES_JAVA_OPTS: "-Xms512m -Xmx512m"       # Ограничение heap для dev-окружения
+      action.destructive_requires_name: "false" # Разрешить удаление индексов по wildcard без предупреждений
     ports:
       - "${ES_PORT}:9200"
     volumes:
