@@ -2,8 +2,6 @@
 
 from elasticsearch import ConnectionError
 
-from src.models.blogpost import BlogpostCreate
-
 
 # ── ошибки ─────────────────────────────────────────────────────────────────
 
@@ -31,11 +29,11 @@ async def test_get_es_connection_error_returns_503(
 # ── корректные ─────────────────────────────────────────────────────────────
 
 
-async def test_get_existing_blogpost(test_client_no_db, elastic_service_mock):
+async def test_get_existing_blogpost(test_client_no_db, elastic_service_mock, data_generator):
     """Успешное получение блогпоста."""
     # Создаём через сервис, чтобы был в мок-хранилище
     await elastic_service_mock.blogposts.create(
-        BlogpostCreate(id="bp-1", title="Заголовок", text="Текст", tags=["python"]),
+        data_generator.blogposts.blogpost_create(id="bp-1", title="Заголовок", text="Текст", tags=["python"]),
     )
 
     response = await test_client_no_db.get("/blogposts/bp-1")

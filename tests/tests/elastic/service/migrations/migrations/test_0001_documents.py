@@ -1,11 +1,8 @@
-from datetime import datetime, timezone
-
 import pytest
 from elasticsearch import BadRequestError
 
 from src.config import Config
 from src.elastic import ElasticService
-from src.models.document import Document
 
 
 # ── upgrade ────────────────────────────────────────────────────────────────
@@ -13,6 +10,7 @@ from src.models.document import Document
 
 async def test_upgrade_creates_index_with_correct_settings(
     test_config: Config,
+    data_generator,
 ):
     """Миграция создаёт индекс с корректными настройками и маппингом."""
     cfg = Config(**{
@@ -25,7 +23,7 @@ async def test_upgrade_creates_index_with_correct_settings(
 
         # Проверяем, что индекс существует и принимает документы
         await es.documents.index_documents([
-            Document(id=1, text="тестовый документ", rubrics=[], created_date=datetime.now(timezone.utc)),
+            data_generator.documents.document(id=1, text="тестовый документ"),
         ])
         result = await es.documents.search("тестовый")
         assert result == [1]

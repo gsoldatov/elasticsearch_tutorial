@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from elasticsearch import ConnectionError
 
 from src.exceptions import UpdateConflict
-from src.models.blogpost import BlogpostCreate
 
 
 # ── ошибки ─────────────────────────────────────────────────────────────────
@@ -39,12 +38,12 @@ async def test_update_es_connection_error_returns_503(
 
 
 async def test_update_conflict_returns_409(
-    test_client_no_db, elastic_service_mock,
+    test_client_no_db, elastic_service_mock, data_generator,
 ):
     """Конфликт optimistic lock — 409."""
     # Создаём блогпост, он должен быть в хранилище
     await elastic_service_mock.blogposts.create(
-        BlogpostCreate(id="bp-1", title="Original", text="Text", tags=[]),
+        data_generator.blogposts.blogpost_create(id="bp-1", title="Original", text="Text", tags=[]),
     )
     elastic_service_mock.blogposts.raise_on_update = UpdateConflict(
         "Конфликт версий документа. Попробуйте позже."
@@ -75,10 +74,10 @@ async def test_update_empty_body_returns_422(test_client_no_db):
 # ── корректные ─────────────────────────────────────────────────────────────
 
 
-async def test_update_single_field(test_client_no_db, elastic_service_mock):
+async def test_update_single_field(test_client_no_db, elastic_service_mock, data_generator):
     """Частичное обновление одного поля."""
     await elastic_service_mock.blogposts.create(
-        BlogpostCreate(id="bp-1", title="Original", text="Text", tags=["old"]),
+        data_generator.blogposts.blogpost_create(id="bp-1", title="Original", text="Text", tags=["old"]),
     )
 
     response = await test_client_no_db.patch(
@@ -94,10 +93,10 @@ async def test_update_single_field(test_client_no_db, elastic_service_mock):
     assert body["tags"] == ["old"]
 
 
-async def test_update_multiple_fields(test_client_no_db, elastic_service_mock):
+async def test_update_multiple_fields(test_client_no_db, elastic_service_mock, data_generator):
     """Частичное обновление нескольких полей."""
     await elastic_service_mock.blogposts.create(
-        BlogpostCreate(id="bp-1", title="Original", text="Text", tags=["old"]),
+        data_generator.blogposts.blogpost_create(id="bp-1", title="Original", text="Text", tags=["old"]),
     )
 
     response = await test_client_no_db.patch(
@@ -112,11 +111,11 @@ async def test_update_multiple_fields(test_client_no_db, elastic_service_mock):
 
 
 async def test_update_with_provided_updated_at(
-    test_client_no_db, elastic_service_mock,
+    test_client_no_db, elastic_service_mock, data_generator,
 ):
     """PATCH принимает updated_at в теле запроса."""
     await elastic_service_mock.blogposts.create(
-        BlogpostCreate(id="bp-1", title="Original", text="Text", tags=[]),
+        data_generator.blogposts.blogpost_create(id="bp-1", title="Original", text="Text", tags=[]),
     )
 
     response = await test_client_no_db.patch(

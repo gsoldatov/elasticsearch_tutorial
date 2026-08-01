@@ -1,11 +1,8 @@
-from datetime import datetime, timezone
-
 import pytest
 from elasticsearch import NotFoundError
 
 from src.config import Config
 from src.elastic import ElasticService
-from src.models.document import Document
 from tests.mocks.elastic_operations import ElasticOperations
 
 
@@ -106,11 +103,11 @@ async def test_delete_removes_document(
 async def test_index_documents_bulk(
     elastic_service: ElasticService,
     elastic_operations: ElasticOperations,
+    data_generator,
 ):
     """Массовая индексация: все документы попадают в индекс."""
-    now = datetime.now(timezone.utc)
     docs = [
-        Document(id=i, text=f"документ номер {i}", rubrics=[], created_date=now)
+        data_generator.documents.document(id=i, text=f"документ номер {i}")
         for i in range(50)
     ]
     await elastic_service.documents.index_documents(docs)
@@ -122,14 +119,14 @@ async def test_index_documents_bulk(
 async def test_index_duplicate_id_overwrites(
     elastic_service: ElasticService,
     elastic_operations: ElasticOperations,
+    data_generator,
 ):
     """Повторная индексация с тем же id перезаписывает документ."""
-    now = datetime.now(timezone.utc)
     await elastic_service.documents.index_documents([
-        Document(id=1, text="первая версия текста", rubrics=[], created_date=now),
+        data_generator.documents.document(id=1, text="первая версия текста"),
     ])
     await elastic_service.documents.index_documents([
-        Document(id=1, text="вторая версия текста", rubrics=[], created_date=now),
+        data_generator.documents.document(id=1, text="вторая версия текста"),
     ])
 
     result_first = await elastic_service.documents.search("первая")

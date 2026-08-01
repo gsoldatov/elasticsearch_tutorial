@@ -63,6 +63,7 @@ Stack used:
 - tests:
     - write test cases as functions;
     - test case order (where applicable): errors (validation, network, etc.) -> business logic errors -> edge cases -> happy path;
+    - test cases should use data generator classes to create test data, where needed;
     - assert errors are in Russian, rest can be in English;
 
 

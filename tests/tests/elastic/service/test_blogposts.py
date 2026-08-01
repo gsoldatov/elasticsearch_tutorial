@@ -1,12 +1,10 @@
 from datetime import datetime, timezone
 
 import pytest
-from elasticsearch import NotFoundError
 
 from src.config import Config
 from src.elastic import ElasticService
 from src.exceptions import NotFoundException, UpdateConflict
-from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostUpdate
 from tests.mocks.elastic_operations import ElasticOperations
 
 
@@ -15,10 +13,11 @@ from tests.mocks.elastic_operations import ElasticOperations
 
 async def test_create_without_id_generates_auto_id(
     elastic_service: ElasticService,
+    data_generator,
 ):
     """Создание без id — ES генерирует авто-id."""
     bp = await elastic_service.blogposts.create(
-        BlogpostCreate(title="Заголовок", text="Текст", tags=["tag"]),
+        data_generator.blogposts.blogpost_create(title="Заголовок", text="Текст", tags=["tag"]),
     )
 
     assert bp.id
@@ -31,10 +30,11 @@ async def test_create_without_id_generates_auto_id(
 
 async def test_create_with_explicit_id(
     elastic_service: ElasticService,
+    data_generator,
 ):
     """Создание с явным id."""
     bp = await elastic_service.blogposts.create(
-        BlogpostCreate(id="my-bp-1", title="T", text="X", tags=[]),
+        data_generator.blogposts.blogpost_create(id="my-bp-1", title="T", text="X", tags=[]),
     )
 
     assert bp.id == "my-bp-1"
@@ -42,11 +42,12 @@ async def test_create_with_explicit_id(
 
 async def test_create_with_updated_at_uses_provided_value(
     elastic_service: ElasticService,
+    data_generator,
 ):
     """Если передан updated_at — используется он, а не pipeline."""
     now = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
     bp = await elastic_service.blogposts.create(
-        BlogpostCreate(title="T", text="X", tags=[], updated_at=now),
+        data_generator.blogposts.blogpost_create(updated_at=now),
     )
 
     assert bp.updated_at == now
@@ -55,15 +56,16 @@ async def test_create_with_updated_at_uses_provided_value(
 async def test_create_duplicate_id_raises_update_conflict(
     elastic_service: ElasticService,
     elastic_operations: ElasticOperations,
+    data_generator,
 ):
     """Повторное создание с тем же id — UpdateConflict."""
     await elastic_service.blogposts.create(
-        BlogpostCreate(id="dup", title="First", text="X", tags=[]),
+        data_generator.blogposts.blogpost_create(id="dup", title="First"),
     )
 
     with pytest.raises(UpdateConflict):
         await elastic_service.blogposts.create(
-            BlogpostCreate(id="dup", title="Second", text="Y", tags=[]),
+            data_generator.blogposts.blogpost_create(id="dup", title="Second"),
         )
 
     # Проверяем, что первый документ не перезаписан
@@ -106,6 +108,7 @@ async def test_get_nonexistent_blogpost_raises_not_found(
 async def test_update_existing_blogpost(
     elastic_service: ElasticService,
     elastic_operations: ElasticOperations,
+    data_generator,
 ):
     """Частичное обновление блогпоста."""
     elastic_operations.blogposts.index_blogpost(
@@ -115,7 +118,7 @@ async def test_update_existing_blogpost(
 
     bp = await elastic_service.blogposts.update(
         "bp-1",
-        BlogpostUpdate(title="New Title", tags=["new"]),
+        data_generator.blogposts.blogpost_update(title="New Title", tags=["new"]),
     )
 
     assert bp.title == "New Title"
@@ -127,6 +130,7 @@ async def test_update_existing_blogpost(
 async def test_update_updated_at_is_set_to_now(
     elastic_service: ElasticService,
     elastic_operations: ElasticOperations,
+    data_generator,
 ):
     """updated_at обновляется на текущее время."""
     elastic_operations.blogposts.index_blogpost(
@@ -136,7 +140,7 @@ async def test_update_updated_at_is_set_to_now(
 
     before = datetime.now(timezone.utc)
     bp = await elastic_service.blogposts.update(
-        "bp-1", BlogpostUpdate(title="New"),
+        "bp-1", data_generator.blogposts.blogpost_update(),
     )
     after = datetime.now(timezone.utc)
 
@@ -147,17 +151,19 @@ async def test_update_updated_at_is_set_to_now(
 
 async def test_update_nonexistent_blogpost_raises_not_found(
     elastic_service: ElasticService,
+    data_generator,
 ):
     """Обновление несуществующего блогпоста — NotFoundException."""
     with pytest.raises(NotFoundException, match="не найден"):
         await elastic_service.blogposts.update(
-            "nonexistent", BlogpostUpdate(title="New"),
+            "nonexistent", data_generator.blogposts.blogpost_update(),
         )
 
 
 async def test_update_preserves_updated_at_when_provided(
     elastic_service: ElasticService,
     elastic_operations: ElasticOperations,
+    data_generator,
 ):
     """Если передан updated_at — используется переданное значение."""
     elastic_operations.blogposts.index_blogpost(
@@ -168,7 +174,7 @@ async def test_update_preserves_updated_at_when_provided(
     now = datetime(2025, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
     bp = await elastic_service.blogposts.update(
         "bp-1",
-        BlogpostUpdate(title="New", updated_at=now),
+        data_generator.blogposts.blogpost_update(updated_at=now),
     )
 
     assert bp.updated_at == now
@@ -208,12 +214,11 @@ async def test_delete_nonexistent_blogpost_does_not_raise(
 async def test_index_blogposts_bulk(
     elastic_service: ElasticService,
     elastic_operations: ElasticOperations,
+    data_generator,
 ):
     """Массовая индексация блогпостов."""
-    from src.models.blogpost import Blogpost
-
     blogposts = [
-        Blogpost(
+        data_generator.blogposts.blogpost(
             id=str(i),
             title=f"Post {i}",
             text=f"Text {i}",
