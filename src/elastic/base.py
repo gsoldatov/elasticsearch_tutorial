@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Awaitable
 
 from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostUpdate
 from src.models.document import Document
@@ -33,15 +33,15 @@ class ElasticBlogpostsServiceBase(ABC):
         """Массовая индексация блогпостов."""
 
     @abstractmethod
-    async def create(self, data: BlogpostCreate) -> Blogpost:
+    def create(self, data: BlogpostCreate) -> Awaitable[Blogpost]:
         """Создание блогпоста. Возвращает созданный объект."""
 
     @abstractmethod
-    async def get(self, blogpost_id: str) -> Blogpost:
+    def get(self, blogpost_id: str) -> Awaitable[Blogpost]:
         """Получение блогпоста по id."""
 
     @abstractmethod
-    async def update(self, blogpost_id: str, data: BlogpostUpdate) -> Blogpost:
+    def update(self, blogpost_id: str, data: BlogpostUpdate) -> Awaitable[Blogpost]:
         """Частичное обновление блогпоста с optimistic lock."""
 
     @abstractmethod
