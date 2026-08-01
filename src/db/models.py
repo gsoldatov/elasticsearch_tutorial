@@ -9,7 +9,7 @@ class Base(DeclarativeBase):
     pass
 
 
-class Document(Base):
+class Documents(Base):
     __tablename__ = "documents"
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)

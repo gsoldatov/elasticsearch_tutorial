@@ -42,7 +42,9 @@ Stack used:
 - routes:
     - OpenAPI docs for the route must correctly reflect all of its responses;
     - 404 responses are explicitly handled by the route handlers;
-- Pydantic models live in `src/models/`, SQLAlchemy ORM models in `src/db/models.py`;
+- Pydantic vs SQLAlchemy classes:
+    - Pydantic models live in `src/models/`, SQLAlchemy ORM models in `src/db/models.py`;
+    - Pydantic classes have singular names (`Document`), SQLAlchemy classes have plural names (`Documents`);
 - ElasticSearch:
     - service methods:
         - accept and return Pydantic models, where applicable;

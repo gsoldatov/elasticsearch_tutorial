@@ -1,7 +1,7 @@
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.db.models import Document as DocumentModel
+from src.db.models import Documents
 from src.exceptions import NotFoundException, internal_validation
 from src.models import Document
 
@@ -20,9 +20,9 @@ class DocumentRepository:
             raise NotFoundException("Документы по заданному запросу не найдены")
 
         stmt = (
-            select(DocumentModel)
-            .where(DocumentModel.id.in_(ids))
-            .order_by(DocumentModel.created_date.desc())
+            select(Documents)
+            .where(Documents.id.in_(ids))
+            .order_by(Documents.created_date.desc())
             .limit(limit)
         )
         result = await self._session.execute(stmt)
@@ -33,7 +33,7 @@ class DocumentRepository:
 
     async def delete_by_id(self, doc_id: int) -> None:
         """Удаляет документ по id."""
-        stmt = delete(DocumentModel).where(DocumentModel.id == doc_id)
+        stmt = delete(Documents).where(Documents.id == doc_id)
         result = await self._session.execute(stmt)
         if result.rowcount == 0:
             raise NotFoundException(f"Документ {doc_id} не найден")

@@ -12,7 +12,7 @@ from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from src.config import get_config
-from src.db.models import Document
+from src.db.models import Documents
 from src.models import DocumentCreate
 
 
@@ -40,7 +40,7 @@ async def ingest_data(config, csv_path: Path) -> int:
     async with async_session() as session:
         for batch in batched(documents, 1000):
             async with session.begin():
-                stmt = insert(Document).values(list(batch))
+                stmt = insert(Documents).values(list(batch))
                 await session.execute(stmt)
 
     return len(documents)
