@@ -6,8 +6,8 @@ from elasticsearch import NotFoundError as EsNotFoundError
 from elasticsearch.helpers import async_bulk
 
 from src.elastic.base import ElasticBlogpostsServiceBase
-from src.exceptions import NotFoundException, UpdateConflict
-from src.models.blogpost import Blogpost
+from src.exceptions import NotFoundException, UpdateConflict, internal_validation
+from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostUpdate
 
 if TYPE_CHECKING:
     from src.elastic.service import ElasticService
@@ -39,12 +39,14 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
         ]
         await async_bulk(self.client, actions, refresh=self._es._refresh)
 
-    async def create(self, data: dict) -> Blogpost:
+    @internal_validation
+    async def create(self, data: BlogpostCreate) -> Blogpost:
         """Создание блогпоста. Если id не передан — ES генерирует авто-id.
         Если id передан и уже существует — 409."""
         index = self._es._config.es_blogposts_index_name
-        doc_id = data.pop("id", None)
-        args: dict = {"index": index, "body": data}
+        body = data.model_dump(mode="json", exclude_none=True)
+        doc_id = body.pop("id", None)
+        args: dict = {"index": index, "body": body}
         if doc_id is not None:
             args["id"] = doc_id
             args["op_type"] = "create"
@@ -61,6 +63,7 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
         created = await self.client.get(index=index, id=response["_id"])
         return Blogpost(id=created["_id"], **created["_source"])
 
+    @internal_validation
     async def get(self, blogpost_id: str) -> Blogpost:
         """Получение блогпоста по id."""
         index = self._es._config.es_blogposts_index_name
@@ -70,17 +73,19 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
             raise NotFoundException(f"Блогпост {blogpost_id} не найден")
         return Blogpost(id=response["_id"], **response["_source"])
 
-    async def update(self, blogpost_id: str, data: dict) -> Blogpost:
+    @internal_validation
+    async def update(self, blogpost_id: str, data: BlogpostUpdate) -> Blogpost:
         """Частичное обновление блогпоста с optimistic lock (до 3 попыток)."""
         index = self._es._config.es_blogposts_index_name
-        if "updated_at" not in data:
-            data["updated_at"] = datetime.now(timezone.utc)
+        body = data.model_dump(mode="json", exclude_none=True)
+        if "updated_at" not in body:
+            body["updated_at"] = datetime.now(timezone.utc)
 
         try:
             response = await self.client.update(
                 index=index,
                 id=blogpost_id,
-                doc=data,
+                doc=body,
                 retry_on_conflict=2,
                 source=True,
             )

@@ -6,6 +6,7 @@ from elasticsearch import NotFoundError
 from src.config import Config
 from src.elastic import ElasticService
 from src.exceptions import NotFoundException, UpdateConflict
+from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostUpdate
 from tests.mocks.elastic_operations import ElasticOperations
 
 
@@ -16,11 +17,9 @@ async def test_create_without_id_generates_auto_id(
     elastic_service: ElasticService,
 ):
     """Создание без id — ES генерирует авто-id."""
-    bp = await elastic_service.blogposts.create({
-        "title": "Заголовок",
-        "text": "Текст",
-        "tags": ["tag"],
-    })
+    bp = await elastic_service.blogposts.create(
+        BlogpostCreate(title="Заголовок", text="Текст", tags=["tag"]),
+    )
 
     assert bp.id
     assert len(bp.id) > 0
@@ -34,12 +33,9 @@ async def test_create_with_explicit_id(
     elastic_service: ElasticService,
 ):
     """Создание с явным id."""
-    bp = await elastic_service.blogposts.create({
-        "id": "my-bp-1",
-        "title": "T",
-        "text": "X",
-        "tags": [],
-    })
+    bp = await elastic_service.blogposts.create(
+        BlogpostCreate(id="my-bp-1", title="T", text="X", tags=[]),
+    )
 
     assert bp.id == "my-bp-1"
 
@@ -49,12 +45,9 @@ async def test_create_with_updated_at_uses_provided_value(
 ):
     """Если передан updated_at — используется он, а не pipeline."""
     now = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
-    bp = await elastic_service.blogposts.create({
-        "title": "T",
-        "text": "X",
-        "tags": [],
-        "updated_at": now.isoformat(),
-    })
+    bp = await elastic_service.blogposts.create(
+        BlogpostCreate(title="T", text="X", tags=[], updated_at=now),
+    )
 
     assert bp.updated_at == now
 
@@ -64,20 +57,14 @@ async def test_create_duplicate_id_raises_update_conflict(
     elastic_operations: ElasticOperations,
 ):
     """Повторное создание с тем же id — UpdateConflict."""
-    await elastic_service.blogposts.create({
-        "id": "dup",
-        "title": "First",
-        "text": "X",
-        "tags": [],
-    })
+    await elastic_service.blogposts.create(
+        BlogpostCreate(id="dup", title="First", text="X", tags=[]),
+    )
 
     with pytest.raises(UpdateConflict):
-        await elastic_service.blogposts.create({
-            "id": "dup",
-            "title": "Second",
-            "text": "Y",
-            "tags": [],
-        })
+        await elastic_service.blogposts.create(
+            BlogpostCreate(id="dup", title="Second", text="Y", tags=[]),
+        )
 
     # Проверяем, что первый документ не перезаписан
     bp = await elastic_service.blogposts.get("dup")
@@ -128,7 +115,7 @@ async def test_update_existing_blogpost(
 
     bp = await elastic_service.blogposts.update(
         "bp-1",
-        {"title": "New Title", "tags": ["new"]},
+        BlogpostUpdate(title="New Title", tags=["new"]),
     )
 
     assert bp.title == "New Title"
@@ -148,7 +135,9 @@ async def test_update_updated_at_is_set_to_now(
     )
 
     before = datetime.now(timezone.utc)
-    bp = await elastic_service.blogposts.update("bp-1", {"title": "New"})
+    bp = await elastic_service.blogposts.update(
+        "bp-1", BlogpostUpdate(title="New"),
+    )
     after = datetime.now(timezone.utc)
 
     assert bp.updated_at is not None
@@ -162,7 +151,7 @@ async def test_update_nonexistent_blogpost_raises_not_found(
     """Обновление несуществующего блогпоста — NotFoundException."""
     with pytest.raises(NotFoundException, match="не найден"):
         await elastic_service.blogposts.update(
-            "nonexistent", {"title": "New"},
+            "nonexistent", BlogpostUpdate(title="New"),
         )
 
 
@@ -179,7 +168,7 @@ async def test_update_preserves_updated_at_when_provided(
     now = datetime(2025, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
     bp = await elastic_service.blogposts.update(
         "bp-1",
-        {"title": "New", "updated_at": now.isoformat()},
+        BlogpostUpdate(title="New", updated_at=now),
     )
 
     assert bp.updated_at == now

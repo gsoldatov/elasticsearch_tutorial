@@ -22,8 +22,7 @@ router = APIRouter(tags=["blogposts"])
 async def create_blogpost(request: Request, body: BlogpostCreate) -> Blogpost:
     """Создаёт блогпост в Elasticsearch."""
     elastic_service = cast(ElasticServiceBase, request.app.state.elastic_service)
-    data = body.model_dump(exclude_none=True)
-    return await elastic_service.blogposts.create(data)
+    return await elastic_service.blogposts.create(body)
 
 
 @router.get(
@@ -59,8 +58,7 @@ async def get_blogpost(request: Request, blogpost_id: str) -> Blogpost:
 async def update_blogpost(request: Request, blogpost_id: str, body: BlogpostUpdate) -> Blogpost:
     """Частично обновляет блогпост с optimistic lock."""
     elastic_service = cast(ElasticServiceBase, request.app.state.elastic_service)
-    data = body.model_dump(exclude_none=True)
-    return await elastic_service.blogposts.update(blogpost_id, data)
+    return await elastic_service.blogposts.update(blogpost_id, body)
 
 
 @router.delete(

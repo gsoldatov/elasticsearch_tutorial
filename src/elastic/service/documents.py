@@ -4,6 +4,7 @@ from elasticsearch import NotFoundError
 from elasticsearch.helpers import async_bulk
 
 from src.elastic.base import ElasticDocumentsServiceBase
+from src.models.document import Document
 
 if TYPE_CHECKING:
     from src.elastic.service import ElasticService
@@ -45,19 +46,17 @@ class ElasticDocumentsService(ElasticDocumentsServiceBase):
             if e.body and isinstance(e.body, dict) and e.body.get("result") != "not_found":
                 raise
 
-    async def index_documents(self, documents: list[dict]) -> None:
+    async def index_documents(self, documents: list[Document]) -> None:
         """Массовая индексация документов.
 
-        Каждый документ — словарь с ключами 'id' и 'text'.
+        Из модели Document извлекаются только id и text —
+        остальные поля для поискового индекса не нужны.
         """
         actions = [
             {
                 "_index": self._es._config.es_documents_index_name,
-                "_id": str(doc["id"]),
-                "_source": {
-                    "id": doc["id"],
-                    "text": doc["text"],
-                },
+                "_id": str(doc.id),
+                "_source": doc.model_dump(include={"id", "text"}),
             }
             for doc in documents
         ]

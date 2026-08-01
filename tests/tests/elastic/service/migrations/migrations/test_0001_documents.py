@@ -1,8 +1,11 @@
+from datetime import datetime, timezone
+
 import pytest
 from elasticsearch import BadRequestError
 
 from src.config import Config
 from src.elastic import ElasticService
+from src.models.document import Document
 
 
 # ── upgrade ────────────────────────────────────────────────────────────────
@@ -22,7 +25,7 @@ async def test_upgrade_creates_index_with_correct_settings(
 
         # Проверяем, что индекс существует и принимает документы
         await es.documents.index_documents([
-            {"id": 1, "text": "тестовый документ"},
+            Document(id=1, text="тестовый документ", rubrics=[], created_date=datetime.now(timezone.utc)),
         ])
         result = await es.documents.search("тестовый")
         assert result == [1]

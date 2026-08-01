@@ -10,8 +10,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from src.config import get_config
-from src.db.models import Document
+from src.db.models import Document as OrmDocument
 from src.elastic import ElasticService
+from src.models.document import Document
 
 
 async def ingest_documents(config) -> int:
@@ -28,12 +29,12 @@ async def ingest_documents(config) -> int:
 
     try:
         async with async_session() as session:
-            stream = await session.stream(select(Document.id, Document.text))
+            stream = await session.stream_scalars(select(OrmDocument))
 
             count = 0
-            batch: list[dict] = []
+            batch: list[Document] = []
             async for row in stream:
-                batch.append({"id": row[0], "text": row[1]})
+                batch.append(Document.model_validate(row))
                 if len(batch) >= 1000:
                     await es.documents.index_documents(batch)
                     count += len(batch)

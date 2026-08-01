@@ -43,15 +43,19 @@ Stack used:
     - OpenAPI docs for the route must correctly reflect all of its responses;
     - 404 responses are explicitly handled by the route handlers;
 - Pydantic models live in `src/models/`, SQLAlchemy ORM models in `src/db/models.py`;
-- ElasticSearch migrations:
-    - are managed by `ElasticMigrations` class available via `ElasticService.migrations`;
-    - each migration revision is implemented as subclass of `RevisionBase`:
-        - migrations must use index names from the app config available via parent `ElasticService` object;
-        - `upgrade`:
-            - should try to throw where applicable to reduce the risk of out of order errors;
-            - new indices should use aliases, so that they could be updated in future revisions via reindex + alias change;
-        - `downgrade`:
-            - should try to be idempotent and allow partial rollback of the applied changes, so that it's possible to revert changes, if they didn't apply properly
+- ElasticSearch:
+    - service methods:
+        - accept and return Pydantic models, where applicable;
+        - are decorated with `internal_validation`, when they return Pydantic model objects;
+    - migrations:
+        - are managed by `ElasticMigrations` class available via `ElasticService.migrations`;
+        - each migration revision is implemented as subclass of `RevisionBase`:
+            - migrations must use index names from the app config available via parent `ElasticService` object;
+            - `upgrade`:
+                - should try to throw where applicable to reduce the risk of out of order errors;
+                - new indices should use aliases, so that they could be updated in future revisions via reindex + alias change;
+            - `downgrade`:
+                - should try to be idempotent and allow partial rollback of the applied changes, so that it's possible to revert changes, if they didn't apply properly
 - error messages, comments (including separation comments) and README are in Russian; code is in English;
 
 - tests:

@@ -3,7 +3,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from src.models.blogpost import Blogpost
+from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostUpdate
+from src.models.document import Document
 
 if TYPE_CHECKING:
     from src.elastic.service.migrations.base import ElasticMigrationsBase
@@ -20,7 +21,7 @@ class ElasticDocumentsServiceBase(ABC):
     async def delete(self, doc_id: int) -> None:
         """Удаление документа из поискового индекса."""
 
-    async def index_documents(self, documents: list[dict]) -> None:
+    async def index_documents(self, documents: list[Document]) -> None:
         """Массовая индексация документов."""
 
 
@@ -32,7 +33,7 @@ class ElasticBlogpostsServiceBase(ABC):
         """Массовая индексация блогпостов."""
 
     @abstractmethod
-    async def create(self, data: dict) -> Blogpost:
+    async def create(self, data: BlogpostCreate) -> Blogpost:
         """Создание блогпоста. Возвращает созданный объект."""
 
     @abstractmethod
@@ -40,7 +41,7 @@ class ElasticBlogpostsServiceBase(ABC):
         """Получение блогпоста по id."""
 
     @abstractmethod
-    async def update(self, blogpost_id: str, data: dict) -> Blogpost:
+    async def update(self, blogpost_id: str, data: BlogpostUpdate) -> Blogpost:
         """Частичное обновление блогпоста с optimistic lock."""
 
     @abstractmethod

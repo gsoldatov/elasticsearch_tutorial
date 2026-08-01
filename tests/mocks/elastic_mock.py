@@ -7,7 +7,7 @@ from src.elastic import (
     ElasticServiceBase,
 )
 from src.exceptions import NotFoundException, UpdateConflict
-from src.models.blogpost import Blogpost
+from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostUpdate
 
 
 class ElasticDocumentsServiceMock(ElasticDocumentsServiceBase):
@@ -61,21 +61,22 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
     async def index_blogposts(self, blogposts: list) -> None:
         self.index_blogposts_calls.append({"blogposts": blogposts})
 
-    async def create(self, data: dict) -> Blogpost:
+    async def create(self, data: BlogpostCreate) -> Blogpost:
         if self.raise_on_create is not None:
             raise self.raise_on_create
-        self.create_calls.append({"data": dict(data)})
-        doc_id = data.get("id")
+        self.create_calls.append({"data": data})
+        body = data.model_dump(exclude_none=True)
+        doc_id = body.pop("id", None)
         if doc_id is not None and doc_id in self._blogposts:
             raise UpdateConflict(
                 f"Блогпост с id '{doc_id}' уже существует."
             )
         bp = Blogpost(
             id=doc_id if doc_id is not None else self._next_id(),
-            title=data["title"],
-            text=data["text"],
-            tags=data.get("tags", []),
-            updated_at=data.get(
+            title=body["title"],
+            text=body["text"],
+            tags=body.get("tags", []),
+            updated_at=body.get(
                 "updated_at",
                 datetime.now(timezone.utc),
             ),
@@ -91,14 +92,15 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
             raise NotFoundException(f"Блогпост {blogpost_id} не найден")
         return self._blogposts[blogpost_id]
 
-    async def update(self, blogpost_id: str, data: dict) -> Blogpost:
+    async def update(self, blogpost_id: str, data: BlogpostUpdate) -> Blogpost:
         if self.raise_on_update is not None:
             raise self.raise_on_update
-        self.update_calls.append({"blogpost_id": blogpost_id, "data": dict(data)})
+        self.update_calls.append({"blogpost_id": blogpost_id, "data": data})
         if blogpost_id not in self._blogposts:
             raise NotFoundException(f"Блогпост {blogpost_id} не найден")
         bp = self._blogposts[blogpost_id]
-        updated = bp.model_copy(update=data)
+        update_data = data.model_dump(exclude_none=True)
+        updated = bp.model_copy(update=update_data)
         self._blogposts[blogpost_id] = updated
         return updated
 

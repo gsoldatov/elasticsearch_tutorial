@@ -2,6 +2,8 @@
 
 from elasticsearch import ConnectionError
 
+from src.models.blogpost import BlogpostCreate
+
 
 # ── ошибки ─────────────────────────────────────────────────────────────────
 
@@ -34,12 +36,9 @@ async def test_delete_nonexistent_returns_204(test_client_no_db):
 
 async def test_delete_existing_blogpost(test_client_no_db, elastic_service_mock):
     """Успешное удаление существующего блогпоста — 204."""
-    await elastic_service_mock.blogposts.create({
-        "id": "bp-1",
-        "title": "T",
-        "text": "X",
-        "tags": [],
-    })
+    await elastic_service_mock.blogposts.create(
+        BlogpostCreate(id="bp-1", title="T", text="X", tags=[]),
+    )
 
     response = await test_client_no_db.delete("/blogposts/bp-1")
 
