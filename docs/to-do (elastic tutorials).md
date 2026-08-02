@@ -57,17 +57,25 @@
             + optimistic (if_seq_no + if_primary_term);
         + delete;
         
-        - full-text search:
-            - search by multiple fields;
-                - case insensitive;
-                ? use different rules;
-                ? use a more specific set of analyzers;
-            - filter by time;
-            - order;
-            - sort;
-            - limit + pagination;
+        + full-text search:
+            + search by multiple fields;
+                + case insensitive;     // default analyzer provides case insensivity
+                x use different rules;
+                x use a more specific set of analyzers;
+            + filter by time;
+            + order by time desc;
+            + limit + pagination;
         
-        - fuzzy search;
+        - fuzzy search:
+            - convert tags to lowercase in keyword index;   // lowercase_normalizer?
+            - convert query text to lowercase;
+            - implement fuzzy search for matching tags;
+    
+    - test ES setup:
+        - migration upgrade & data deletion;
+        - documents ingestion;
+        - blogposts ingestiong;
+        - add test curl commands for blogposts routes;
 
 - aggregations:
     - add a dataset with metrics and dimensions to filter on;

@@ -7,7 +7,7 @@ from elasticsearch.helpers import async_bulk
 
 from src.elastic.base import ElasticBlogpostsServiceBase
 from src.exceptions import NotFoundException, UpdateConflict, internal_validation
-from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostUpdate
+from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostUpdate
 
 if TYPE_CHECKING:
     from src.elastic.service import ElasticService
@@ -109,3 +109,80 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
             id=blogpost_id,
             refresh=self._es._refresh,
         )
+
+    @internal_validation
+    async def search(
+        self,
+        query: str,
+        *,
+        min_time: datetime | None = None,
+        max_time: datetime | None = None,
+        tags: list[str] | None = None,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> BlogpostSearchResult:
+        """
+        Полнотекстовый поиск блогпостов с фильтрами и пагинацией.
+        """
+        index = self._es._config.es_blogposts_index_name
+        must: list[dict] = [
+            {
+                "multi_match": {
+                    "query": query,
+                    # поля, по которым ведется поиск
+                    "fields": ["title^3", "text"],
+                    # стратегия объединения результатов - берется лучшее значения
+                    # (используется по умолчанию, но указана явно)
+                    "type": "best_fields",
+                    # поиск документов по любому из терминов запроса
+                    # (используется по умолчанию, но указана явно)
+                    "operator": "or",
+                    # нечеткий поиск с динамическим количеством ошибок,
+                    # в зависимости от длина слова
+                    # (используется по умолчанию, но указана явно)
+                    "fuzziness": "AUTO",
+                    # количество начальных символов, которые не учитываются в нечетком поиске
+                    "prefix_length": 2,
+                },
+            },
+        ]
+
+        body: dict = {
+            "query": {"bool": {"must": must}},
+            "from": (page - 1) * per_page,
+            "size": per_page,
+            "track_total_hits": True,
+            "sort": [{"updated_at": "desc"}],
+        }
+
+        # Фильтр по диапазону updated_at — документы вне диапазона исключаются
+        if min_time is not None or max_time is not None:
+            range_filter: dict = {}
+            if min_time is not None:
+                range_filter["gte"] = min_time.isoformat()
+            if max_time is not None:
+                range_filter["lte"] = max_time.isoformat()
+            body["query"]["bool"]["filter"] = [
+                {"range": {"updated_at": range_filter}},
+            ]
+
+        # Фильтр по тегам: should с minimum_should_match: 1 —
+        # документ должен иметь хотя бы один из указанных тегов,
+        # а совпадение по нескольким тегам повышает score
+        if tags:
+            body["query"]["bool"]["should"] = [
+                {"term": {"tags": tag}} for tag in tags
+            ]
+            body["query"]["bool"]["minimum_should_match"] = 1
+
+        response = await self.client.search(index=index, body=body)
+
+        total = response["hits"]["total"]["value"]
+        if total == 0:
+            raise NotFoundException("Блогпосты по заданному запросу не найдены")
+
+        items = [
+            Blogpost(id=hit["_id"], **hit["_source"])
+            for hit in response["hits"]["hits"]
+        ]
+        return BlogpostSearchResult(items=items, total=total)

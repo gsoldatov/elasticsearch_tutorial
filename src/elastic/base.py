@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Awaitable
 
-from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostUpdate
+from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostUpdate
 from src.models.document import Document
 
 if TYPE_CHECKING:
@@ -47,6 +47,19 @@ class ElasticBlogpostsServiceBase(ABC):
     @abstractmethod
     async def delete(self, blogpost_id: str) -> None:
         """Удаление блогпоста."""
+
+    @abstractmethod
+    def search(
+        self,
+        query: str,
+        *,
+        min_time: datetime | None = None,
+        max_time: datetime | None = None,
+        tags: list[str] | None = None,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> Awaitable[BlogpostSearchResult]:
+        """Полнотекстовый поиск блогпостов с фильтрами и пагинацией."""
 
 
 class ElasticServiceBase(ABC):

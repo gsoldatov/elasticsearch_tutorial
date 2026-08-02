@@ -7,7 +7,7 @@ from src.elastic import (
     ElasticServiceBase,
 )
 from src.exceptions import NotFoundException, UpdateConflict
-from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostUpdate
+from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostUpdate
 
 
 class ElasticDocumentsServiceMock(ElasticDocumentsServiceBase):
@@ -45,6 +45,7 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
         self.get_calls: list[dict] = []
         self.update_calls: list[dict] = []
         self.delete_calls: list[dict] = []
+        self.search_calls: list[dict] = []
 
         self._blogposts: dict[str, Blogpost] = {}
         self._id_counter: int = 0
@@ -53,6 +54,7 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
         self.raise_on_get: Exception | None = None
         self.raise_on_update: Exception | None = None
         self.raise_on_delete: Exception | None = None
+        self.raise_on_search: Exception | None = None
 
     def _next_id(self) -> str:
         self._id_counter += 1
@@ -109,6 +111,52 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
             raise self.raise_on_delete
         self.delete_calls.append({"blogpost_id": blogpost_id})
         self._blogposts.pop(blogpost_id, None)
+
+    async def search(
+        self,
+        query: str,
+        *,
+        min_time: datetime | None = None,
+        max_time: datetime | None = None,
+        tags: list[str] | None = None,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> BlogpostSearchResult:
+        if self.raise_on_search is not None:
+            raise self.raise_on_search
+        self.search_calls.append({
+            "query": query,
+            "min_time": min_time,
+            "max_time": max_time,
+            "tags": tags,
+            "page": page,
+            "per_page": per_page,
+        })
+
+        items = list(self._blogposts.values())
+
+        # Фильтр по диапазону updated_at
+        if min_time is not None:
+            items = [bp for bp in items if bp.updated_at >= min_time]
+        if max_time is not None:
+            items = [bp for bp in items if bp.updated_at <= max_time]
+
+        # Фильтр по тегам: хотя бы один должен совпасть
+        if tags:
+            items = [bp for bp in items if any(t in bp.tags for t in tags)]
+
+        if not items:
+            raise NotFoundException("Блогпосты по заданному запросу не найдены")
+
+        # Сортировка по updated_at по убыванию
+        items.sort(key=lambda bp: bp.updated_at, reverse=True)
+
+        # Пагинация
+        total = len(items)
+        from_idx = (page - 1) * per_page
+        items = items[from_idx:from_idx + per_page]
+
+        return BlogpostSearchResult(items=items, total=total)
 
 
 class ElasticMigrationsMock(ElasticMigrationsBase):
