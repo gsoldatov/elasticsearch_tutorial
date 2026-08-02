@@ -8,6 +8,9 @@ from src.elastic.service.migrations.revisions.r_0001_documents import (
 from src.elastic.service.migrations.revisions.r_0002_blogposts import (
     Revision0002Blogposts,
 )
+from src.elastic.service.migrations.revisions.r_0003_blogpost_tags_subfield import (
+    Revision0003BlogpostTagsSubfield,
+)
 
 if TYPE_CHECKING:
     from src.elastic.service import ElasticService
@@ -21,6 +24,7 @@ class ElasticMigrations(ElasticMigrationsBase):
         self._revisions: list[RevisionBase] = [
             Revision0001Documents(es),
             Revision0002Blogposts(es),
+            Revision0003BlogpostTagsSubfield(es),
         ]
 
     async def upgrade(self, current: str, to: str) -> None:

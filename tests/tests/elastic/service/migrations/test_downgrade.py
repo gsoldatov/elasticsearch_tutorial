@@ -57,7 +57,7 @@ async def test_downgrade_head_to_base_deletes_pipelines(
         await es.migrations.upgrade(current="base", to="head")
         await es.migrations.downgrade(current="head", to="base")
 
-        assert len(es.migrations._revisions) == 2, (
+        assert len(es.migrations._revisions) == 3, (
             "Добавлена новая миграция — обнови этот тест: "
             "проверь, что список ожидаемых pipelines актуален."
         )
@@ -89,7 +89,7 @@ async def test_downgrade_head_to_base_deletes_aliases(
         await es.migrations.upgrade(current="base", to="head")
         await es.migrations.downgrade(current="head", to="base")
 
-        assert len(es.migrations._revisions) == 2, (
+        assert len(es.migrations._revisions) == 3, (
             "Добавлена новая миграция — обнови этот тест: "
             "проверь, что список ожидаемых aliases актуален."
         )
