@@ -221,7 +221,7 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
                     "terms": {
                         "field": "tags",
                         "include": _include_re,
-                        "size": 100,
+                        "size": 10,
                     },
                 },
             },

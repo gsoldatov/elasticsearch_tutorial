@@ -99,3 +99,60 @@ async def test_search_tags_returns_unique_sorted(
 
     result = await elastic_service.blogposts.search_tags("p")
     assert result == ["python"]
+
+
+# ── лимит результата — не более 10 тегов ───────────────────────────────────
+
+
+async def test_search_tags_returns_at_most_10(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+):
+    """Если подходящих тегов больше 10, возвращаются только первые 10
+    по алфавиту; неподходящие теги отфильтровываются."""
+    py_tags = [f"py{i:02d}" for i in range(12)]
+    non_matching = ["java", "rust", "go"]
+    elastic_operations.blogposts.index_blogpost(
+        "bp-1", "Post", "Text", py_tags + non_matching,
+        updated_at="2025-01-01T00:00:00Z",
+    )
+
+    result = await elastic_service.blogposts.search_tags("py")
+    assert len(result) == 10
+    assert result == py_tags[:10]
+
+
+async def test_search_tags_exactly_10(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+):
+    """Если подходящих тегов ровно 10 — возвращаются все;
+    неподходящие теги отфильтровываются."""
+    py_tags = [f"py{i:02d}" for i in range(10)]
+    non_matching = ["java", "rust", "go"]
+    elastic_operations.blogposts.index_blogpost(
+        "bp-1", "Post", "Text", py_tags + non_matching,
+        updated_at="2025-01-01T00:00:00Z",
+    )
+
+    result = await elastic_service.blogposts.search_tags("py")
+    assert len(result) == 10
+    assert result == py_tags
+
+
+async def test_search_tags_fewer_than_10(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+):
+    """Если подходящих тегов меньше 10 — возвращаются все;
+    неподходящие теги отфильтровываются."""
+    py_tags = ["pya", "pyb", "pyc", "pyd", "pye"]
+    non_matching = ["java", "rust", "go"]
+    elastic_operations.blogposts.index_blogpost(
+        "bp-1", "Post", "Text", py_tags + non_matching,
+        updated_at="2025-01-01T00:00:00Z",
+    )
+
+    result = await elastic_service.blogposts.search_tags("py")
+    assert len(result) == 5
+    assert result == sorted(py_tags)
