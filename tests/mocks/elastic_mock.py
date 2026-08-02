@@ -46,6 +46,7 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
         self.update_calls: list[dict] = []
         self.delete_calls: list[dict] = []
         self.search_calls: list[dict] = []
+        self.search_tags_calls: list[dict] = []
 
         self._blogposts: dict[str, Blogpost] = {}
         self._id_counter: int = 0
@@ -55,6 +56,7 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
         self.raise_on_update: Exception | None = None
         self.raise_on_delete: Exception | None = None
         self.raise_on_search: Exception | None = None
+        self.raise_on_search_tags: Exception | None = None
 
     def _next_id(self) -> str:
         self._id_counter += 1
@@ -157,6 +159,25 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
         items = items[from_idx:from_idx + per_page]
 
         return BlogpostSearchResult(items=items, total=total)
+
+    async def search_tags(self, q: str) -> list[str]:
+        if self.raise_on_search_tags is not None:
+            raise self.raise_on_search_tags
+        self.search_tags_calls.append({"q": q})
+
+        # Собираем все уникальные теги из всех блогпостов
+        all_tags: set[str] = set()
+        for bp in self._blogposts.values():
+            all_tags.update(bp.tags)
+
+        # Фильтруем: тег начинается с q (case-insensitive)
+        q_lower = q.casefold()
+        result = [t for t in all_tags if t.casefold().startswith(q_lower)]
+
+        if not result:
+            raise NotFoundException("Теги по заданному запросу не найдены")
+
+        return sorted(result)
 
 
 class ElasticMigrationsMock(ElasticMigrationsBase):

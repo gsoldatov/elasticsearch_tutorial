@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import TYPE_CHECKING, Awaitable
 
 from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostUpdate
@@ -60,6 +61,10 @@ class ElasticBlogpostsServiceBase(ABC):
         per_page: int = 20,
     ) -> Awaitable[BlogpostSearchResult]:
         """Полнотекстовый поиск блогпостов с фильтрами и пагинацией."""
+
+    @abstractmethod
+    async def search_tags(self, q: str) -> list[str]:
+        """Нечёткий префиксный поиск по тегам. Возвращает уникальные теги."""
 
 
 class ElasticServiceBase(ABC):

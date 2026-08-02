@@ -78,6 +78,25 @@ async def search_blogposts(
 
 
 @router.get(
+    "/search_tags",
+    response_model=list[str],
+    responses={
+        404: {
+            "description": "Теги по заданному запросу не найдены",
+            "model": ErrorResponse,
+        },
+    },
+)
+async def search_tags(
+    request: Request,
+    q: str = Query(min_length=1, max_length=256, description="Префикс тега"),
+) -> list[str]:
+    """Нечёткий префиксный поиск по тегам. Возвращает уникальные теги."""
+    elastic_service = cast(ElasticServiceBase, request.app.state.elastic_service)
+    return await elastic_service.blogposts.search_tags(q)
+
+
+@router.get(
     "/{blogpost_id}",
     response_model=Blogpost,
     responses={

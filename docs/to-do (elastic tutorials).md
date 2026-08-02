@@ -46,10 +46,10 @@
         + data generation script (with Faker);
         + ingestion script;
     
-    - skip creating a DB session for `blogposts`;
-    - skip creating a mock DB in `blogposts` tests;
+    + skip creating a DB session for `blogposts`;
+    + skip creating a mock DB in `blogposts` tests;
 
-    - add endpoints for blogposts:
+    + add endpoints for blogposts:
         + create;
         + read;
         + update:
@@ -66,10 +66,11 @@
             + order by time desc;
             + limit + pagination;
         
-        - fuzzy search:
-            - convert tags to lowercase in keyword index;   // lowercase_normalizer?
-            - convert query text to lowercase;
-            - implement fuzzy search for matching tags;
+        + prefix search on tags:
+            + add search_as_you_type mapping on tags;
+            + implement search:
+                + normalize query (replace word separators in query with underscores, remove non-alphanum chars);
+                + implement prefix search which returns unique tags matching the query;
     
     - test ES setup:
         - migration upgrade & data deletion;
