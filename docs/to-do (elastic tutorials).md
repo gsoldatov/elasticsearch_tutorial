@@ -75,8 +75,8 @@
     - test ES setup:
         - migration upgrade & data deletion;
         - documents ingestion;
-        - blogposts ingestiong;
-        - add test curl commands for blogposts routes;
+        - blogposts ingestion;
+        + add test curl commands for blogposts routes;
 
 - aggregations:
     - add a dataset with metrics and dimensions to filter on;
