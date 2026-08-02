@@ -39,7 +39,7 @@
 
 + add Elastic migrations definition (move out of service);
 
-- full-text search on another dataset:    
++ full-text search on another dataset:    
     + `blogposts` dataset and index:
         + several indexed fields (title, text, tags, timestamp);
         + models and ES migration;
@@ -72,12 +72,12 @@
                 + normalize query (replace word separators in query with underscores, remove non-alphanum chars);
                 + implement prefix search which returns unique tags matching the query;
     
-    - test ES setup:
+    + test ES setup:
         + add test curl commands for blogposts routes;
         + save generated blogposts to json;
-        - migration upgrade & data deletion;
-        - documents ingestion;
-        - blogposts ingestion;
+        + migration upgrade & data deletion;
+        + documents ingestion;
+        + blogposts ingestion;
 
 - aggregations:
     - add a dataset with metrics and dimensions to filter on;
