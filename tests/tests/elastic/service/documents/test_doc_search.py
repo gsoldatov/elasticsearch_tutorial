@@ -7,17 +7,19 @@ from tests.mocks.elastic_operations import ElasticOperations
 
 
 async def test_search_on_nonexistent_index_raises(
-    elastic_service: ElasticService,
     test_config: Config,
 ):
     """Поиск по несуществующему индексу — ошибка."""
-    saved = test_config.es_documents_index_name
-    test_config.es_documents_index_name = "nonexistent_index_name"
+    cfg = Config(**{
+        **test_config.model_dump(),
+        "es_documents_index_name": "nonexistent_index_name",
+    })
+    es = ElasticService(cfg)
     try:
         with pytest.raises(NotFoundError):
-            await elastic_service.documents.search("запрос")
+            await es.documents.search("запрос")
     finally:
-        test_config.es_documents_index_name = saved
+        await es.close()
 
 
 async def test_search_empty_index_returns_empty_list(

@@ -7,17 +7,19 @@ from tests.mocks.elastic_operations import ElasticOperations
 
 
 async def test_delete_on_nonexistent_index_raises(
-    elastic_service: ElasticService,
     test_config: Config,
 ):
     """Удаление до создания индекса — ошибка (индекс не существует)."""
-    saved = test_config.es_documents_index_name
-    test_config.es_documents_index_name = "nonexistent_index_name"
+    cfg = Config(**{
+        **test_config.model_dump(),
+        "es_documents_index_name": "nonexistent_index_name",
+    })
+    es = ElasticService(cfg)
     try:
         with pytest.raises(NotFoundError):
-            await elastic_service.documents.delete(1)
+            await es.documents.delete(1)
     finally:
-        test_config.es_documents_index_name = saved
+        await es.close()
 
 
 async def test_delete_nonexistent_document_does_not_raise(
