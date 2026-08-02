@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import json
 import sys
 from pathlib import Path
 
@@ -10,17 +11,24 @@ from data.blogposts import generate_blogposts
 from src.config import get_config
 from src.elastic import ElasticService
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
 
 async def ingest_blogposts(
     config,
     number: int,
     seed: int,
     starting_id: int,
+    *,
+    write_file_path: str | None = None,
 ) -> int:
     """Генерирует блогпосты и загружает их в поисковый индекс.
 
     Блогпосты создаются в памяти (без записи в БД) и вставляются
     в ES батчами по 1000.
+
+    Если указан write_file_path (относительно корня проекта),
+    сгенерированные данные также записываются в JSON-файл.
 
     Возвращает количество загруженных блогпостов.
     """
@@ -29,6 +37,17 @@ async def ingest_blogposts(
         seed=seed,
         starting_id=starting_id,
     )
+
+    if write_file_path is not None:
+        target = PROJECT_ROOT / write_file_path
+        target.write_text(
+            json.dumps(
+                [bp.model_dump(mode="json") for bp in blogposts],
+                ensure_ascii=False,
+                indent=4,
+            ),
+            encoding="utf-8",
+        )
     es = ElasticService(config)
 
     try:
@@ -78,6 +97,12 @@ async def _main() -> None:
         default=1,
         help="Начальный числовой id (по умолчанию: 1)",
     )
+    parser.add_argument(
+        "--write-file-path",
+        type=str,
+        default=None,
+        help="Путь относительно корня проекта для сохранения сгенерированных данных в JSON",
+    )
     args = parser.parse_args()
 
     config = get_config(args.env_file)
@@ -86,7 +111,10 @@ async def _main() -> None:
         number=args.number,
         seed=args.seed,
         starting_id=args.starting_id,
+        write_file_path=args.write_file_path,
     )
+    if args.write_file_path:
+        print(f"Данные сохранены в {args.write_file_path}")
     print(f"Загружено блогпостов в ES: {count}")
 
 

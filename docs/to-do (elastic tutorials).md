@@ -73,10 +73,11 @@
                 + implement prefix search which returns unique tags matching the query;
     
     - test ES setup:
+        + add test curl commands for blogposts routes;
+        + save generated blogposts to json;
         - migration upgrade & data deletion;
         - documents ingestion;
         - blogposts ingestion;
-        + add test curl commands for blogposts routes;
 
 - aggregations:
     - add a dataset with metrics and dimensions to filter on;
