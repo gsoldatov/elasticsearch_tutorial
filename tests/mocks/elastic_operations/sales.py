@@ -15,3 +15,26 @@ class ElasticSalesOperations:
             index=self._es._config.es_sales_index_name,
         )
         return result["count"]
+
+    def index_sale(
+        self,
+        date: str,
+        region: str,
+        product: str,
+        units_sold: int,
+        price: float,
+        revenue: float,
+    ) -> None:
+        """Индексирует один документ продажи в тестовый индекс."""
+        self._es._client.index(
+            index=self._es._config.es_sales_index_name,
+            document={
+                "date": date,
+                "region": region,
+                "product": product,
+                "units_sold": units_sold,
+                "price": price,
+                "revenue": revenue,
+            },
+            refresh=True,
+        )

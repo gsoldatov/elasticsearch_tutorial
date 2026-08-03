@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Awaitable
 
 from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostUpdate
 from src.models.document import Document
-from src.models.sales import Sale
+from src.models.sales import Sale, SalesByMonthRegionItem
 
 if TYPE_CHECKING:
     from src.elastic.service.migrations.base import ElasticMigrationsBase
@@ -102,3 +102,14 @@ class ElasticSalesServiceBase(ABC):
     @abstractmethod
     async def index_sales(self, sales: list[Sale]) -> None:
         """Массовая индексация продаж."""
+
+    @abstractmethod
+    def by_month_and_region(
+        self,
+        *,
+        min_date: date | None = None,
+        max_date: date | None = None,
+        regions: list[str] | None = None,
+        products: list[str] | None = None,
+    ) -> Awaitable[list[SalesByMonthRegionItem]]:
+        """Агрегация выручки по месяцам и регионам с фильтрами."""

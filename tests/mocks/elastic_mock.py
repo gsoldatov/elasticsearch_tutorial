@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from src.elastic import (
     ElasticBlogpostsServiceBase,
@@ -9,7 +9,7 @@ from src.elastic import (
 )
 from src.exceptions import NotFoundException, UpdateConflict
 from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostUpdate
-from src.models.sales import Sale
+from src.models.sales import Sale, SalesByMonthRegionItem
 
 
 class ElasticDocumentsServiceMock(ElasticDocumentsServiceBase):
@@ -200,9 +200,30 @@ class ElasticSalesServiceMock(ElasticSalesServiceBase):
 
     def __init__(self) -> None:
         self.index_sales_calls: list[dict] = []
+        self.by_month_and_region_calls: list[dict] = []
+        self._by_month_and_region_result: list[SalesByMonthRegionItem] = []
+        self.raise_on_by_month_and_region: Exception | None = None
 
     async def index_sales(self, sales: list[Sale]) -> None:
         self.index_sales_calls.append({"sales": sales})
+
+    async def by_month_and_region(
+        self,
+        *,
+        min_date: date | None = None,
+        max_date: date | None = None,
+        regions: list[str] | None = None,
+        products: list[str] | None = None,
+    ) -> list[SalesByMonthRegionItem]:
+        if self.raise_on_by_month_and_region is not None:
+            raise self.raise_on_by_month_and_region
+        self.by_month_and_region_calls.append({
+            "min_date": min_date,
+            "max_date": max_date,
+            "regions": regions,
+            "products": products,
+        })
+        return self._by_month_and_region_result
 
 
 class ElasticServiceMock(ElasticServiceBase):

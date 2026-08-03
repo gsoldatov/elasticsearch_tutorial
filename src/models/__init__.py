@@ -8,3 +8,8 @@ from src.models.blogpost import (
 from src.models.config import Config
 from src.models.document import Document, DocumentCreate
 from src.models.error import ErrorResponse
+from src.models.sales import (
+    SalesByMonthRegionItem,
+    validate_products_param,
+    validate_region_param,
+)
