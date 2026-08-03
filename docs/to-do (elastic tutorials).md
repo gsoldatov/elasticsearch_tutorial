@@ -80,11 +80,11 @@
         + blogposts ingestion;
 
 - aggregations:
-    - sales dataset:
+    + sales dataset:
         + date, region, product, unit_sold, price, revenue;
         + models;
         + service and migration script;
-        - ingestion script;
+        + ingestion script;
     
     - route handlers which return aggregated data:
         - cumulative sales by month and region;     // with filters for min and max dates, product and region
