@@ -80,11 +80,19 @@
         + blogposts ingestion;
 
 - aggregations:
-    - add a dataset with metrics and dimensions to filter on;
+    - sales dataset:
+        + date, region, product, unit_sold, price, revenue;
+        + models;
+        - migration script;
+        - ingestion script;
+    
+    - route handlers which return aggregated data:
+        - cumulative sales by month and region;     // with filters for min and max dates, product and region
+        - top x products by revenue grouped by department;    // nested aggregation; allow period and region filters
+        - group sales by units_sold intervals of 10 (0-9, 10-19, ...) and calculate revenue; allow period and region filters
+
     - see above
     // https://www.elastic.co/docs/explore-analyze/query-filter/aggregations/tutorial-analyze-ecommerce-data-with-aggregations-using-query-dsl
-    ? bool query (`must` + `should` + ???);
-    ???
 
 - vector search:
     - see above;
