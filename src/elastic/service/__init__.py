@@ -2,15 +2,16 @@ from elasticsearch import AsyncElasticsearch
 from elastic_transport._node._http_httpx import HttpxAsyncHttpNode
 
 from src.config import Config
-from src.elastic.base import ElasticBlogpostsServiceBase, ElasticDocumentsServiceBase, ElasticServiceBase
+from src.elastic.base import ElasticBlogpostsServiceBase, ElasticDocumentsServiceBase, ElasticSalesServiceBase, ElasticServiceBase
 from src.elastic.service.blogposts import ElasticBlogpostsService
 from src.elastic.service.documents import ElasticDocumentsService
 from src.elastic.service.migrations import ElasticMigrations
 from src.elastic.service.migrations.base import ElasticMigrationsBase
+from src.elastic.service.sales import ElasticSalesService
 
 
 class ElasticService(ElasticServiceBase):
-    """Фасад для доступа к ES: клиент + документные операции + блогпосты + миграции."""
+    """Фасад для доступа к ES: клиент + документные операции + блогпосты + продажи + миграции."""
 
     def __init__(self, config: Config, *, refresh: bool = False) -> None:
         self._config = config
@@ -18,6 +19,7 @@ class ElasticService(ElasticServiceBase):
         self._client: AsyncElasticsearch | None = None
         self._documents = ElasticDocumentsService(self)
         self._blogposts = ElasticBlogpostsService(self)
+        self._sales = ElasticSalesService(self)
         self._migrations = ElasticMigrations(self)
 
     @property
@@ -27,6 +29,10 @@ class ElasticService(ElasticServiceBase):
     @property
     def blogposts(self) -> ElasticBlogpostsServiceBase:
         return self._blogposts
+
+    @property
+    def sales(self) -> ElasticSalesServiceBase:
+        return self._sales
 
     @property
     def migrations(self) -> ElasticMigrationsBase:

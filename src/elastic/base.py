@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Awaitable
 
 from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostUpdate
 from src.models.document import Document
+from src.models.sales import Sale
 
 if TYPE_CHECKING:
     from src.elastic.service.migrations.base import ElasticMigrationsBase
@@ -82,9 +83,22 @@ class ElasticServiceBase(ABC):
 
     @property
     @abstractmethod
+    def sales(self) -> ElasticSalesServiceBase:
+        """Операции с продажами."""
+
+    @property
+    @abstractmethod
     def migrations(self) -> ElasticMigrationsBase:
         """Миграции ES."""
 
     @abstractmethod
     async def close(self) -> None:
         """Освобождение ресурсов."""
+
+
+class ElasticSalesServiceBase(ABC):
+    """Абстрактный класс для операций с продажами в ES."""
+
+    @abstractmethod
+    async def index_sales(self, sales: list[Sale]) -> None:
+        """Массовая индексация продаж."""

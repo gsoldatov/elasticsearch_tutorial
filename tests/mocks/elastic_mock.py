@@ -4,10 +4,12 @@ from src.elastic import (
     ElasticBlogpostsServiceBase,
     ElasticDocumentsServiceBase,
     ElasticMigrationsBase,
+    ElasticSalesServiceBase,
     ElasticServiceBase,
 )
 from src.exceptions import NotFoundException, UpdateConflict
 from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostUpdate
+from src.models.sales import Sale
 
 
 class ElasticDocumentsServiceMock(ElasticDocumentsServiceBase):
@@ -193,12 +195,23 @@ class ElasticMigrationsMock(ElasticMigrationsBase):
         pass
 
 
+class ElasticSalesServiceMock(ElasticSalesServiceBase):
+    """Заглушка операций с продажами elastic-сервиса."""
+
+    def __init__(self) -> None:
+        self.index_sales_calls: list[dict] = []
+
+    async def index_sales(self, sales: list[Sale]) -> None:
+        self.index_sales_calls.append({"sales": sales})
+
+
 class ElasticServiceMock(ElasticServiceBase):
     """Заглушка фасада elastic-сервиса с реестром вызовов для тестов."""
 
     def __init__(self) -> None:
         self._documents = ElasticDocumentsServiceMock()
         self._blogposts = ElasticBlogpostsServiceMock()
+        self._sales = ElasticSalesServiceMock()
         self._migrations = ElasticMigrationsMock()
 
     @property
@@ -208,6 +221,10 @@ class ElasticServiceMock(ElasticServiceBase):
     @property
     def blogposts(self) -> ElasticBlogpostsServiceMock:
         return self._blogposts
+
+    @property
+    def sales(self) -> ElasticSalesServiceMock:
+        return self._sales
 
     @property
     def migrations(self) -> ElasticMigrationsMock:

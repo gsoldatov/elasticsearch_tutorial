@@ -83,7 +83,7 @@
     - sales dataset:
         + date, region, product, unit_sold, price, revenue;
         + models;
-        - migration script;
+        + service and migration script;
         - ingestion script;
     
     - route handlers which return aggregated data:

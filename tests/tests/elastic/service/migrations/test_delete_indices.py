@@ -12,7 +12,7 @@ async def test_delete_indices_removes_index(
     test_config: Config,
 ):
     """delete_indices удаляет все индексы (включая версионированные)."""
-    assert len(test_config.es_indices) == 2, (
+    assert len(test_config.es_indices) == 3, (
         "Добавлен новый ES-индекс — обнови этот тест."
     )
     cfg = Config(**{
@@ -57,7 +57,7 @@ async def test_delete_indices_removes_pipelines(
         await es.migrations.upgrade(current="base", to="head")
         await es.migrations.delete_indices()
 
-        assert len(es.migrations._revisions) == 3, (
+        assert len(es.migrations._revisions) == 4, (
             "Добавлена новая миграция — обнови этот тест: "
             "проверь, что список ожидаемых pipelines актуален."
         )
@@ -89,13 +89,14 @@ async def test_delete_indices_removes_aliases(
         await es.migrations.upgrade(current="base", to="head")
         await es.migrations.delete_indices()
 
-        assert len(es.migrations._revisions) == 3, (
+        assert len(es.migrations._revisions) == 4, (
             "Добавлена новая миграция — обнови этот тест: "
             "проверь, что список ожидаемых aliases актуален."
         )
 
         aliases = [
             cfg.es_blogposts_index_name,
+            cfg.es_sales_index_name,
         ]
         for alias in aliases:
             assert not await es.client.indices.exists_alias(name=alias), (

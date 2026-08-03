@@ -3,6 +3,7 @@ from elasticsearch import Elasticsearch
 from src.models.config import Config
 from tests.mocks.elastic_operations.blogposts import ElasticBlogpostsOperations
 from tests.mocks.elastic_operations.documents import ElasticDocumentsOperations
+from tests.mocks.elastic_operations.sales import ElasticSalesOperations
 
 
 class ElasticOperations:
@@ -17,6 +18,7 @@ class ElasticOperations:
         self._index = config.es_documents_index_name
         self.documents = ElasticDocumentsOperations(self)
         self.blogposts = ElasticBlogpostsOperations(self)
+        self.sales = ElasticSalesOperations(self)
 
     def close(self) -> None:
         """Закрывает sync-клиент ES."""
