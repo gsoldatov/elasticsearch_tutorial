@@ -9,7 +9,7 @@ from src.elastic import (
 )
 from src.exceptions import NotFoundException, UpdateConflict
 from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostUpdate
-from src.models.sales import Sale, SalesByMonthRegionItem
+from src.models.sales import Sale, SalesByMonthRegionItem, TopProductItem
 
 
 class ElasticDocumentsServiceMock(ElasticDocumentsServiceBase):
@@ -201,8 +201,11 @@ class ElasticSalesServiceMock(ElasticSalesServiceBase):
     def __init__(self) -> None:
         self.index_sales_calls: list[dict] = []
         self.by_month_and_region_calls: list[dict] = []
+        self.top_products_calls: list[dict] = []
         self._by_month_and_region_result: list[SalesByMonthRegionItem] = []
+        self._top_products_result: list[TopProductItem] = []
         self.raise_on_by_month_and_region: Exception | None = None
+        self.raise_on_top_products: Exception | None = None
 
     async def index_sales(self, sales: list[Sale]) -> None:
         self.index_sales_calls.append({"sales": sales})
@@ -224,6 +227,24 @@ class ElasticSalesServiceMock(ElasticSalesServiceBase):
             "products": products,
         })
         return self._by_month_and_region_result
+
+    async def top_products(
+        self,
+        *,
+        n: int = 10,
+        min_date: date | None = None,
+        max_date: date | None = None,
+        regions: list[str] | None = None,
+    ) -> list[TopProductItem]:
+        if self.raise_on_top_products is not None:
+            raise self.raise_on_top_products
+        self.top_products_calls.append({
+            "n": n,
+            "min_date": min_date,
+            "max_date": max_date,
+            "regions": regions,
+        })
+        return self._top_products_result
 
 
 class ElasticServiceMock(ElasticServiceBase):

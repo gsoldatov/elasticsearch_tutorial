@@ -88,7 +88,7 @@
     
     - route handlers which return aggregated data:
         + total sales by month and region;     // with filters for min and max dates, product and region
-        - top x products by revenue grouped by department;    // nested aggregation; allow period and region filters
+        + top n products by revenue grouped by region;    // nested aggregation; allow period and region filters
         - group sales by units_sold intervals of 10 (0-9, 10-19, ...) and calculate revenue; allow period and region filters
 
     - see above

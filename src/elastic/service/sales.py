@@ -5,7 +5,7 @@ from elasticsearch.helpers import async_bulk
 
 from src.elastic.base import ElasticSalesServiceBase
 from src.exceptions import internal_validation
-from src.models.sales import Sale, SalesByMonthRegionItem
+from src.models.sales import Sale, SalesByMonthRegionItem, TopProductItem
 
 if TYPE_CHECKING:
     from src.elastic.service import ElasticService
@@ -104,4 +104,73 @@ class ElasticSalesService(ElasticSalesServiceBase):
 
         # Сортировка: month ASC, region ASC
         result.sort(key=lambda item: (item.month, item.region))
+        return result
+
+    @internal_validation
+    async def top_products(
+        self,
+        *,
+        n: int = 10,
+        min_date: date | None = None,
+        max_date: date | None = None,
+        regions: list[str] | None = None,
+    ) -> list[TopProductItem]:
+        """Топ-n продуктов по выручке для каждого региона с фильтрами."""
+        index = self._es._config.es_sales_index_name
+
+        filters: list[dict] = []
+
+        if min_date is not None or max_date is not None:
+            range_filter: dict = {}
+            if min_date is not None:
+                range_filter["gte"] = min_date.isoformat()
+            if max_date is not None:
+                range_filter["lte"] = max_date.isoformat()
+            filters.append({"range": {"date": range_filter}})
+
+        if regions:
+            filters.append({"terms": {"region": regions}})
+
+        body: dict = {
+            "size": 0,
+            "query": {"bool": {"filter": filters}} if filters else {"match_all": {}},
+            "aggs": {
+                "by_region": {
+                    "terms": {
+                        "field": "region",
+                        "size": 10000,
+                        "order": {"_key": "asc"},
+                    },
+                    "aggs": {
+                        "by_product": {
+                            "terms": {
+                                "field": "product",
+                                "size": n,
+                                "order": {"total_revenue": "desc"},
+                            },
+                            "aggs": {
+                                "total_revenue": {
+                                    "sum": {"field": "revenue"},
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        }
+
+        response = await self.client.search(index=index, body=body)
+
+        result: list[TopProductItem] = []
+        for region_bucket in response["aggregations"]["by_region"]["buckets"]:
+            region_key = region_bucket["key"]
+            for product_bucket in region_bucket["by_product"]["buckets"]:
+                result.append(
+                    TopProductItem(
+                        region=region_key,
+                        product=product_bucket["key"],
+                        revenue=product_bucket["total_revenue"]["value"],
+                    )
+                )
+
         return result

@@ -78,3 +78,13 @@ class SalesByMonthRegionItem(BaseModel):
     month: str = Field(description="Месяц в формате yyyy-MM")
     region: str
     revenue: float = Field(description="Суммарная выручка")
+
+
+class TopProductItem(BaseModel):
+    """Элемент результата агрегации: топ продуктов по регионам."""
+
+    model_config = ConfigDict(strict=True)
+
+    region: str
+    product: str
+    revenue: float = Field(description="Суммарная выручка")

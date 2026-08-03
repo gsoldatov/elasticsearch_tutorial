@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Awaitable
 
 from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostUpdate
 from src.models.document import Document
-from src.models.sales import Sale, SalesByMonthRegionItem
+from src.models.sales import Sale, SalesByMonthRegionItem, TopProductItem
 
 if TYPE_CHECKING:
     from src.elastic.service.migrations.base import ElasticMigrationsBase
@@ -113,3 +113,14 @@ class ElasticSalesServiceBase(ABC):
         products: list[str] | None = None,
     ) -> Awaitable[list[SalesByMonthRegionItem]]:
         """Агрегация выручки по месяцам и регионам с фильтрами."""
+
+    @abstractmethod
+    def top_products(
+        self,
+        *,
+        n: int = 10,
+        min_date: date | None = None,
+        max_date: date | None = None,
+        regions: list[str] | None = None,
+    ) -> Awaitable[list[TopProductItem]]:
+        """Топ-n продуктов по выручке для каждого региона."""

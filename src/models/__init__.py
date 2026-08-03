@@ -10,6 +10,7 @@ from src.models.document import Document, DocumentCreate
 from src.models.error import ErrorResponse
 from src.models.sales import (
     SalesByMonthRegionItem,
+    TopProductItem,
     validate_products_param,
     validate_region_param,
 )
