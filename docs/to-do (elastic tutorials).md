@@ -79,20 +79,18 @@
         + documents ingestion;
         + blogposts ingestion;
 
-- aggregations:
++ aggregations:
+    // https://www.elastic.co/docs/explore-analyze/query-filter/aggregations/tutorial-analyze-ecommerce-data-with-aggregations-using-query-dsl
     + sales dataset:
-        + date, region, product, unit_sold, price, revenue;
+        + date, region, product, units_sold, price, revenue;
         + models;
         + service and migration script;
         + ingestion script;
     
-    - route handlers which return aggregated data:
+    + route handlers which return aggregated data:
         + total sales by month and region;     // with filters for min and max dates, product and region
         + top n products by revenue grouped by region;    // nested aggregation; allow period and region filters
-        - group sales by units_sold intervals of 10 (0-9, 10-19, ...) and calculate revenue; allow period and region filters
-
-    - see above
-    // https://www.elastic.co/docs/explore-analyze/query-filter/aggregations/tutorial-analyze-ecommerce-data-with-aggregations-using-query-dsl
+        + group sales by units_sold intervals of 10 (1-10, 11-20, ...) and calculate revenue; allow period, region and product filters
 
 - vector search:
     - see above;

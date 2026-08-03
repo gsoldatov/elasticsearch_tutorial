@@ -9,7 +9,7 @@ from src.elastic import (
 )
 from src.exceptions import NotFoundException, UpdateConflict
 from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostUpdate
-from src.models.sales import Sale, SalesByMonthRegionItem, TopProductItem
+from src.models.sales import Sale, SalesByMonthRegionItem, TopProductItem, UnitsSoldGroupItem
 
 
 class ElasticDocumentsServiceMock(ElasticDocumentsServiceBase):
@@ -202,10 +202,13 @@ class ElasticSalesServiceMock(ElasticSalesServiceBase):
         self.index_sales_calls: list[dict] = []
         self.by_month_and_region_calls: list[dict] = []
         self.top_products_calls: list[dict] = []
+        self.units_sold_groups_calls: list[dict] = []
         self._by_month_and_region_result: list[SalesByMonthRegionItem] = []
         self._top_products_result: list[TopProductItem] = []
+        self._units_sold_groups_result: list[UnitsSoldGroupItem] = []
         self.raise_on_by_month_and_region: Exception | None = None
         self.raise_on_top_products: Exception | None = None
+        self.raise_on_units_sold_groups: Exception | None = None
 
     async def index_sales(self, sales: list[Sale]) -> None:
         self.index_sales_calls.append({"sales": sales})
@@ -245,6 +248,24 @@ class ElasticSalesServiceMock(ElasticSalesServiceBase):
             "regions": regions,
         })
         return self._top_products_result
+
+    async def units_sold_groups(
+        self,
+        *,
+        min_date: date | None = None,
+        max_date: date | None = None,
+        regions: list[str] | None = None,
+        products: list[str] | None = None,
+    ) -> list[UnitsSoldGroupItem]:
+        if self.raise_on_units_sold_groups is not None:
+            raise self.raise_on_units_sold_groups
+        self.units_sold_groups_calls.append({
+            "min_date": min_date,
+            "max_date": max_date,
+            "regions": regions,
+            "products": products,
+        })
+        return self._units_sold_groups_result
 
 
 class ElasticServiceMock(ElasticServiceBase):

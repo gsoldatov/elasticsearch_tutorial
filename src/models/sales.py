@@ -88,3 +88,12 @@ class TopProductItem(BaseModel):
     region: str
     product: str
     revenue: float = Field(description="Суммарная выручка")
+
+
+class UnitsSoldGroupItem(BaseModel):
+    """Элемент результата агрегации: выручка по интервалам units_sold."""
+
+    model_config = ConfigDict(strict=True)
+
+    units_sold: str = Field(description="Интервал единиц продаж, например 1-10")
+    total_revenue: float = Field(description="Суммарная выручка")

@@ -5,7 +5,7 @@ from elasticsearch.helpers import async_bulk
 
 from src.elastic.base import ElasticSalesServiceBase
 from src.exceptions import internal_validation
-from src.models.sales import Sale, SalesByMonthRegionItem, TopProductItem
+from src.models.sales import Sale, SalesByMonthRegionItem, TopProductItem, UnitsSoldGroupItem
 
 if TYPE_CHECKING:
     from src.elastic.service import ElasticService
@@ -173,4 +173,69 @@ class ElasticSalesService(ElasticSalesServiceBase):
                     )
                 )
 
+        return result
+
+    @internal_validation
+    async def units_sold_groups(
+        self,
+        *,
+        min_date: date | None = None,
+        max_date: date | None = None,
+        regions: list[str] | None = None,
+        products: list[str] | None = None,
+    ) -> list[UnitsSoldGroupItem]:
+        """Группировка выручки по интервалам units_sold (1-10, 11-20, ...)."""
+        index = self._es._config.es_sales_index_name
+
+        filters: list[dict] = []
+
+        if min_date is not None or max_date is not None:
+            range_filter: dict = {}
+            if min_date is not None:
+                range_filter["gte"] = min_date.isoformat()
+            if max_date is not None:
+                range_filter["lte"] = max_date.isoformat()
+            filters.append({"range": {"date": range_filter}})
+
+        if regions:
+            filters.append({"terms": {"region": regions}})
+
+        if products:
+            filters.append({"terms": {"product": products}})
+
+        body: dict = {
+            "size": 0,
+            "query": {"bool": {"filter": filters}} if filters else {"match_all": {}},
+            "aggs": {
+                "by_units": {
+                    "histogram": {
+                        "field": "units_sold",
+                        "interval": 10,
+                        "offset": 1,
+                        "min_doc_count": 1,
+                    },
+                    "aggs": {
+                        "total_revenue": {
+                            "sum": {"field": "revenue"},
+                        },
+                    },
+                },
+            },
+        }
+
+        response = await self.client.search(index=index, body=body)
+
+        result: list[UnitsSoldGroupItem] = []
+        for bucket in response["aggregations"]["by_units"]["buckets"]:
+            key = int(bucket["key"])
+            label = f"{key}-{key + 9}"
+            result.append(
+                UnitsSoldGroupItem(
+                    units_sold=label,
+                    total_revenue=bucket["total_revenue"]["value"],
+                )
+            )
+
+        # Сортировка: units_sold ASC (1-10, 11-20, ...)
+        result.sort(key=lambda item: int(item.units_sold.split("-")[0]))
         return result

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Query, Request
 from pydantic import AfterValidator
 
 from src.elastic import ElasticServiceBase
-from src.models import SalesByMonthRegionItem, TopProductItem, validate_products_param, validate_region_param
+from src.models import SalesByMonthRegionItem, TopProductItem, UnitsSoldGroupItem, validate_products_param, validate_region_param
 
 router = APIRouter(tags=["sales"])
 
@@ -76,4 +76,33 @@ async def sales_top_products(
         min_date=min_date,
         max_date=max_date,
         regions=region_list,
+    )
+
+
+@router.get(
+    "/units_sold_groups",
+    response_model=list[UnitsSoldGroupItem],
+)
+async def sales_units_sold_groups(
+    request: Request,
+    min_date: date | None = Query(None, description="Нижняя граница даты"),
+    max_date: date | None = Query(None, description="Верхняя граница даты"),
+    region: RegionQuery = None,
+    products: ProductsQuery = None,
+) -> list[UnitsSoldGroupItem]:
+    """Группировка выручки по интервалам units_sold (1-10, 11-20, ...)."""
+    region_list: list[str] | None = None
+    if region is not None:
+        region_list = [r.strip() for r in region.split(",") if r.strip()]
+
+    products_list: list[str] | None = None
+    if products is not None:
+        products_list = [p.strip() for p in products.split(",") if p.strip()]
+
+    elastic_service = cast(ElasticServiceBase, request.app.state.elastic_service)
+    return await elastic_service.sales.units_sold_groups(
+        min_date=min_date,
+        max_date=max_date,
+        regions=region_list,
+        products=products_list,
     )
