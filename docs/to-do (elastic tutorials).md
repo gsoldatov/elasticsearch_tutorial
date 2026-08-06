@@ -80,10 +80,10 @@
     + update config:
         + add ollama_host, ollama_port, ollama_model to Config + .env;  // also network and batch settings
     
-    - add Ollama container:
-        - model nomic-embed-text, host and port from config, volume for model cache;
-        ? additional options;   // use CPU, 2 cores max, limit cache size
-        - pin container and model versions;
+    + add Ollama container:
+        + model nomic-embed-text, host and port from config, volume for model cache;
+        + additional options;   // use CPU, 2 cores max, limit cache size
+        + pin container and model versions;
 
     - embedding function:
         - ElasticBlogpostsService.get_embeddings:
