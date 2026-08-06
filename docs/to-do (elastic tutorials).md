@@ -1,35 +1,3 @@
-# Basic Plan
-- Connection & Index Management:
-    Before searching, you must understand how to connect securely and define how data is structured.
-    - Secure Client Initialization: Connect using API keys or Basic Authentication, and handle SSL certificates.
-    - Explicit Mapping Definition: Create an index with predefined field types (e.g., text for full-text search, keyword for exact filtering, date, and integer).
-
-- Document Lifecycle (CRUD):
-    Learn how Elasticsearch handles data ingestion and updates, which differs significantly from traditional SQL databases.
-    - Bulk Ingestion: Use helpers.bulk() to efficiently index multiple documents at once instead of making individual API calls.
-    - Optimistic Concurrency Control: Practice updating a document using if_seq_no and if_primary_term to prevent overwrite conflicts.
-    - Partial Updates: Use the update API to change a single field without re-indexing the entire document.
-
-- Advanced Text Search:
-    This is the core strength of Elasticsearch. Cover the exact ways users expect a search bar to behave.
-    - Full-Text vs. Exact Match: Compare a match query (tokenized, case-insensitive) against a term query (exact match for IDs or categories).
-    - Multi-Field Boosting: Search across titles and descriptions simultaneously using multi_match, giving higher weight (^3) to title matches.
-    - Fuzzy & Proximity Searching: Handle typos using fuzziness="AUTO" and find matching phrases even if words are slightly out of order.
-    
-- Filtering, Aggregations, & Pagination:
-    Search is rarely just a text query; users need to drill down into results.
-    - The bool Query: Combine full-text search with strict filters (e.g., "Status must be Active" and "Price must be under $50") using must, should, and filter clauses.
-    - Metric & Bucket Aggregations: Generate dynamic sidebar facets (like counting how many items exist per category) and calculate averages (like average price).
-    - Search After Pagination: Implement safe, scalable pagination using the search_after parameter instead of deep paging with from and size.
-
-- Hybrid & Vector Search (Modern AI Search):
-    Modern applications combine traditional text search with AI-powered semantic understanding.
-    - Dense Vector Embeddings: Add a dense_vector field to your mapping to store text embeddings (generated via libraries like SentenceTransformers).
-    - k-Nearest Neighbor (kNN) Search: Execute a semantic search to find conceptually similar documents, even if they share zero exact keywords with the query.
-    - Reciprocal Rank Fusion (RRF): Combine lexical (BM25) text scores and vector similarity scores into a single, optimized hybrid search result.
-
-
-
 #  To-Do
 + add a tag;
 + update existing project:
@@ -93,11 +61,99 @@
         + group sales by units_sold intervals of 10 (1-10, 11-20, ...) and calculate revenue; allow period, region and product filters
 
 - vector search:
-    - see above;
-        ? update blogposts index with vector mapping(-s) without recreating index;
-        ? hybrid search;
-        - ingest data;
-        - search data;
-        
+    - implement vector index in ES:
+        - Embedding model in a separate container:
+            - approach:
+                - Ollama container, chunking + calls via ElasticBlogpostsService;
+                x separate service + Sentence transformers;
+                x other options for an embedding model that can be interacted via HTTP;
+            - embedding approach:       // model with a small RAM consumption, chunking, etc.
+                - model: nomic-embed-text;
+                - chunking: langchain-text-splitters => RecursiveCharacterTextSplitter;
+            
+            - embedding logic:
+                - ElasticBlogpostsService.get_embeddings:
+                    - accepts `title` and `text` (both are optional);
+                    - gets embedding for `title`, if its not None;
+                    - chunks `text` and gets a list of embeddings for the chunks, if `text` is not None;
+                    - `title` embedding is run in a separate request;
+                    - queries to embedding model for `text` chunks are batched (up to 20 chunks in a request, requests are sequential);
+                    - for omitted args return None;
+                
+                - error middleware:
+                    - network errors when sending requests to embedding model should result in a 503 response;  // if this results in an Ollama-specific error, it can be caught directly, if its a common underlying exception (requests, httpx), it's worth adding an application level EmbeddingModelNetworkError and raising it instead
+                
+                - integrate into existing logic:
+                    - index_blogposts:
+                        - each blogpost gets its embeddings before it's passed to async_bulk;
+                    
+                    - create:
+                        - blogpost gets its embeddings before it's sent to Elasticsearch;
+                    
+                    - update:
+                        - get embeddings for updated data; send embeddings with updated data, if they're not None;
+                    
+                    - migration:
+                        - get existing blogposts => generate embeddings => insert into a new index;
+                        ? update Readme.md to make running embedding container mandatory;
+                    
+                    - ingest_blogposts.py:
+                        ? reduce the amount of blogposts and their text size generated by default;
+                        
+        - migration script:
+            - upgrade:
+                - create vector mappings:    // dense vector, 768 dimensions, hnsw index, cosine similarity; other options?
+                    - title;    // one vector per blogpost
+                    - text;     // nested field with separate text and vector fields for each chunk
+                - create a new index version;
+                    - without reindex, manually query existing data in batches, add embedding field and insert into a new data;
+                - update alias;
+            - downgrade:
+                - simple reindex;
+
+    - update existing blogposts CRUD to ingest vector data;
+
+    - add vector search endpoint:
+        - ANN query on both vector fields;
+        ? define how chunk results are processed;   // take best, ???
+        - fuse results;     // title has more weight than text
+
+    - add hybrid search endpoint:
+        - ANN query on both vector field + full-text search;
+        ? fuse results with RRF;
+
+    ? tests for measuring search quality;
     
 ? geospatial data;
+
+
+
+# Tutorial Plan
+- Connection & Index Management:
+    Before searching, you must understand how to connect securely and define how data is structured.
+    - Secure Client Initialization: Connect using API keys or Basic Authentication, and handle SSL certificates.
+    - Explicit Mapping Definition: Create an index with predefined field types (e.g., text for full-text search, keyword for exact filtering, date, and integer).
+
+- Document Lifecycle (CRUD):
+    Learn how Elasticsearch handles data ingestion and updates, which differs significantly from traditional SQL databases.
+    - Bulk Ingestion: Use helpers.bulk() to efficiently index multiple documents at once instead of making individual API calls.
+    - Optimistic Concurrency Control: Practice updating a document using if_seq_no and if_primary_term to prevent overwrite conflicts.
+    - Partial Updates: Use the update API to change a single field without re-indexing the entire document.
+
+- Advanced Text Search:
+    This is the core strength of Elasticsearch. Cover the exact ways users expect a search bar to behave.
+    - Full-Text vs. Exact Match: Compare a match query (tokenized, case-insensitive) against a term query (exact match for IDs or categories).
+    - Multi-Field Boosting: Search across titles and descriptions simultaneously using multi_match, giving higher weight (^3) to title matches.
+    - Fuzzy & Proximity Searching: Handle typos using fuzziness="AUTO" and find matching phrases even if words are slightly out of order.
+    
+- Filtering, Aggregations, & Pagination:
+    Search is rarely just a text query; users need to drill down into results.
+    - The bool Query: Combine full-text search with strict filters (e.g., "Status must be Active" and "Price must be under $50") using must, should, and filter clauses.
+    - Metric & Bucket Aggregations: Generate dynamic sidebar facets (like counting how many items exist per category) and calculate averages (like average price).
+    - Search After Pagination: Implement safe, scalable pagination using the search_after parameter instead of deep paging with from and size.
+
+- Hybrid & Vector Search (Modern AI Search):
+    Modern applications combine traditional text search with AI-powered semantic understanding.
+    - Dense Vector Embeddings: Add a dense_vector field to your mapping to store text embeddings (generated via libraries like SentenceTransformers).
+    - k-Nearest Neighbor (kNN) Search: Execute a semantic search to find conceptually similar documents, even if they share zero exact keywords with the query.
+    - Reciprocal Rank Fusion (RRF): Combine lexical (BM25) text scores and vector similarity scores into a single, optimized hybrid search result.
