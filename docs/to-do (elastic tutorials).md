@@ -77,8 +77,8 @@
         x separate HTTP service (FastAPI + Semantic Transformers, handles both chunking and embedding);
         x other;
     
-    - update config:
-        - add ollama_host, ollama_port, ollama_model to Config + .env;
+    + update config:
+        + add ollama_host, ollama_port, ollama_model to Config + .env;  // also network and batch settings
     
     - add Ollama container:
         - model nomic-embed-text, host and port from config, volume for model cache;

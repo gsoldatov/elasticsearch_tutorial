@@ -32,6 +32,13 @@ class Config(BaseSettings):
     es_blogposts_index_name: Annotated[str, Field(min_length=1)]
     es_sales_index_name: Annotated[str, Field(min_length=1)]
 
+    ollama_host: Annotated[str, Field(min_length=1)]
+    ollama_port: Annotated[int, Field(gt=0, lt=65536)]
+    ollama_model: Annotated[str, Field(min_length=1)]
+    ollama_timeout: Annotated[int, Field(gt=0)]
+    ollama_batch_size: Annotated[int, Field(gt=0)]
+    ollama_keep_alive: Annotated[str, Field(min_length=1)]
+
     @property
     def db_app_url(self) -> str:
         return (
@@ -64,3 +71,7 @@ class Config(BaseSettings):
             for attr in dir(self)
             if attr.startswith("es_") and attr.endswith("_index_name")
         }
+
+    @property
+    def ollama_url(self) -> str:
+        return f"http://{self.ollama_host}:{self.ollama_port}"

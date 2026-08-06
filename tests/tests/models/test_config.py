@@ -19,6 +19,7 @@ class TestConfigModel:
         Config(**{**data, "backend_port": 65535})
         Config(**{**data, "db_port": 65535})
         Config(**{**data, "es_port": 65535})
+        Config(**{**data, "ollama_port": 65535})
 
     def test_port_above_upper_boundary_raises(self, test_config: Config):
         data = test_config.model_dump()
@@ -51,6 +52,12 @@ class TestConfigModel:
             Config(**{**data, "db_host": ""})
         with pytest.raises(ValidationError):
             Config(**{**data, "db_app_database": ""})
+        with pytest.raises(ValidationError):
+            Config(**{**data, "ollama_host": ""})
+        with pytest.raises(ValidationError):
+            Config(**{**data, "ollama_model": ""})
+        with pytest.raises(ValidationError):
+            Config(**{**data, "ollama_keep_alive": ""})
 
     def test_empty_es_string_field_raises(self, test_config: Config):
         data = test_config.model_dump()
@@ -81,3 +88,16 @@ class TestConfigModel:
         assert indices["es_blogposts_index_name"] == test_config.es_blogposts_index_name
         assert "es_sales_index_name" in indices
         assert indices["es_sales_index_name"] == test_config.es_sales_index_name
+
+    def test_ollama_url_property(self, test_config: Config):
+        assert test_config.ollama_url == f"http://{test_config.ollama_host}:{test_config.ollama_port}"
+
+    def test_ollama_timeout_must_be_positive(self, test_config: Config):
+        data = test_config.model_dump()
+        with pytest.raises(ValidationError):
+            Config(**{**data, "ollama_timeout": 0})
+
+    def test_ollama_batch_size_must_be_positive(self, test_config: Config):
+        data = test_config.model_dump()
+        with pytest.raises(ValidationError):
+            Config(**{**data, "ollama_batch_size": 0})
