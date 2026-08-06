@@ -49,7 +49,7 @@ services:
     volumes:
       - ollama_cache:/root/.ollama
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:11434/"]
+      test: ["CMD-SHELL", "ollama list"]
       interval: 5s
       timeout: 3s
       retries: 10
