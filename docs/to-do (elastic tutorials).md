@@ -66,7 +66,7 @@
         + two indices:
             + blogposts (existing + title_vector: dense_vector, 768, cosine);
             + blogpost_chunks (new, each doc = one text chunk):
-                + fields: blogpost_id, chunk_idx, chunk_text, chunk_vector;
+                + fields: blogpost_id, chunk_index, chunk_text, chunk_vector;
             + chunk collapse at search: max score per blogpost_id;
             + fusion:
                 + linear score combination (α·title_knn + β·max_chunk_score [+ γ·bm25]);
@@ -85,13 +85,16 @@
         + additional options;   // use CPU, 2 cores max, limit cache size
         + pin container and model versions;
 
-    - embedding function:
-        - ElasticBlogpostsService.get_embeddings:
-            - accepts `title` and `text` (both optional);
-            - gets embedding for `title`, if provided (separate request);
-            - chunks `text` via RecursiveCharacterTextSplitter (langchain-text-splitters);
-            - requests embeddings for chunks in batches of up to 20, sequentially;
-            - returns None for omitted args;
+    + embedding function:
+        + BlogpostsEmbeddings.get_embeddings():
+            + accepts `blogpost_id`, `title` and `text` (both optional);
+            + gets embedding for `title`, if provided (separate request);
+            + chunks `text` via RecursiveCharacterTextSplitter (langchain-text-splitters):
+                + splits into chunks with 512 tokens size + 52 tokens overlap;
+                + uses tokenizer to evalute chunk size;
+                + returns a list of Pydantic models which can be dumped into a new index;
+                + requests embeddings for chunks in batches of up to 10, sequentially;
+            + returns None for omitted args;
     
     - integrate embedding processing, pt. 1:
         - index_blogposts:

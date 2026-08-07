@@ -14,6 +14,10 @@ class UpdateConflict(Exception):
     """Конфликт версий при оптимистичном обновлении документа."""
 
 
+class EmbeddingsNetworkError(Exception):
+    """Ошибка сети или таймаута при обращении к Ollama для получения эмбеддингов."""
+
+
 class InternalValidationException(Exception):
     """Ошибка внутренней валидации — подменяет Pydantic ValidationError."""
 

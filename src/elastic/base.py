@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import date, datetime
+from ollama import AsyncClient
 from typing import TYPE_CHECKING, Awaitable
 
-from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostUpdate
+from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostTextChunk, BlogpostUpdate
 from src.models.document import Document
 from src.models.sales import Sale, SalesByMonthRegionItem, TopProductItem, UnitsSoldGroupItem
 
@@ -27,8 +28,28 @@ class ElasticDocumentsServiceBase(ABC):
         """Массовая индексация документов."""
 
 
+class BlogpostsEmbeddingsBase(ABC):
+    """Абстрактный класс для получения эмбеддингов блогпостов."""
+
+    @abstractmethod
+    def get_embeddings(
+        self, blogpost_id: str, *,
+        title: str | None = None, text: str | None = None,
+    ) -> Awaitable[tuple[list[float] | None, list[BlogpostTextChunk]]]:
+        """Получает эмбеддинги для заголовка и текста блогпоста."""
+
+    @abstractmethod
+    def _get_ollama_client(self) -> AsyncClient:
+        """Ленивое создание async-клиента Ollama."""
+
+
 class ElasticBlogpostsServiceBase(ABC):
     """Абстрактный класс для операций с блогпостами в ES."""
+
+    @property
+    @abstractmethod
+    def _embeddings(self) -> "BlogpostsEmbeddingsBase":
+        """Эмбеддинги."""
 
     @abstractmethod
     async def index_blogposts(self, blogposts: list[Blogpost]) -> None:

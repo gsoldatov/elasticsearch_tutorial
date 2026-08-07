@@ -1,6 +1,7 @@
 from datetime import date, datetime, timezone
 
 from src.elastic import (
+    BlogpostsEmbeddingsBase,
     ElasticBlogpostsServiceBase,
     ElasticDocumentsServiceBase,
     ElasticMigrationsBase,
@@ -8,7 +9,7 @@ from src.elastic import (
     ElasticServiceBase,
 )
 from src.exceptions import NotFoundException, UpdateConflict
-from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostUpdate
+from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostTextChunk, BlogpostUpdate
 from src.models.sales import Sale, SalesByMonthRegionItem, TopProductItem, UnitsSoldGroupItem
 
 
@@ -38,10 +39,49 @@ class ElasticDocumentsServiceMock(ElasticDocumentsServiceBase):
         self.delete_calls.append({"doc_id": doc_id})
 
 
+class BlogpostsEmbeddingsMock(BlogpostsEmbeddingsBase):
+    """Заглушка получения эмбеддингов."""
+
+    def __init__(self) -> None:
+        self.get_embeddings_calls: list[dict] = []
+        self.raise_on_get_embeddings: Exception | None = None
+        self._title_vectors: dict[str, list[float]] = {}
+        self._chunk_vectors: dict[str, list[BlogpostTextChunk]] = {}
+
+    def set_result(
+        self,
+        blogpost_id: str,
+        title_vector: list[float] | None = None,
+        chunks: list[BlogpostTextChunk] | None = None,
+    ) -> None:
+        """Задать результат для конкретного blogpost_id."""
+        if title_vector is not None:
+            self._title_vectors[blogpost_id] = title_vector
+        if chunks is not None:
+            self._chunk_vectors[blogpost_id] = chunks
+
+    async def get_embeddings(
+        self, blogpost_id: str, *,
+        title: str | None = None, text: str | None = None,
+    ) -> tuple[list[float] | None, list[BlogpostTextChunk]]:
+        if self.raise_on_get_embeddings is not None:
+            raise self.raise_on_get_embeddings
+        self.get_embeddings_calls.append({
+            "blogpost_id": blogpost_id,
+            "title": title,
+            "text": text,
+        })
+        return (
+            self._title_vectors.get(blogpost_id),
+            self._chunk_vectors.get(blogpost_id, []),
+        )
+
+
 class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
     """Заглушка операций с блогпостами elastic-сервиса."""
 
     def __init__(self) -> None:
+        self.__embeddings = BlogpostsEmbeddingsMock()
         self.index_blogposts_calls: list[dict] = []
         self.create_calls: list[dict] = []
         self.get_calls: list[dict] = []
@@ -59,6 +99,10 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
         self.raise_on_delete: Exception | None = None
         self.raise_on_search: Exception | None = None
         self.raise_on_search_tags: Exception | None = None
+
+    @property
+    def _embeddings(self) -> BlogpostsEmbeddingsMock:
+        return self.__embeddings
 
     def _next_id(self) -> str:
         self._id_counter += 1

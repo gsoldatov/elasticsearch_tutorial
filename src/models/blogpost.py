@@ -96,3 +96,14 @@ class BlogpostSearchResult(BaseModel):
 
     items: list[Blogpost]
     total: int
+
+
+class BlogpostTextChunk(BaseModel):
+    """Чанк текста блогпоста с вектором для индексации в ES."""
+
+    model_config = ConfigDict(strict=True)
+
+    blogpost_id: str
+    chunk_index: int
+    chunk_text: str
+    chunk_vector: list[float]

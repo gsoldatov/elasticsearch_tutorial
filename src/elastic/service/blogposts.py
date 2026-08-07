@@ -7,8 +7,18 @@ from elasticsearch import NotFoundError as EsNotFoundError
 from elasticsearch.helpers import async_bulk
 
 from src.elastic.base import ElasticBlogpostsServiceBase
-from src.exceptions import NotFoundException, UpdateConflict, internal_validation
-from src.models.blogpost import Blogpost, BlogpostCreate, BlogpostSearchResult, BlogpostUpdate
+from src.elastic.service.blogposts_embeddings import BlogpostsEmbeddings
+from src.exceptions import (
+    NotFoundException,
+    UpdateConflict,
+    internal_validation,
+)
+from src.models.blogpost import (
+    Blogpost,
+    BlogpostCreate,
+    BlogpostSearchResult,
+    BlogpostUpdate,
+)
 
 if TYPE_CHECKING:
     from src.elastic.service import ElasticService
@@ -19,10 +29,17 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
 
     def __init__(self, _es: "ElasticService") -> None:
         self._es = _es
+        self.__embeddings = BlogpostsEmbeddings(_es)
+
+    @property
+    def _embeddings(self) -> BlogpostsEmbeddings:
+        return self.__embeddings
 
     @property
     def client(self):
         return self._es.client
+
+    # ── CRUD ────────────────────────────────────────────────────────────
 
     async def index_blogposts(self, blogposts: list[Blogpost]) -> None:
         """Массовая индексация блогпостов.
@@ -111,6 +128,7 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
             refresh=self._es._refresh,
         )
 
+    # ── Full-text search ────────────────────────────────────────────────────────────
     @internal_validation
     async def search(
         self,
