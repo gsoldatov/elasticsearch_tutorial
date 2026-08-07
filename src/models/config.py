@@ -1,7 +1,17 @@
-from typing import Annotated
+from typing import Annotated, Any
 
-from pydantic import Field
+from pydantic import BeforeValidator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _parse_keep_alive(v: Any) -> int | str:
+    """Превращает числовые строки ('-1') в int, остальное оставляет как str."""
+    if isinstance(v, str):
+        try:
+            return int(v)
+        except ValueError:
+            return v
+    return v
 
 
 class Config(BaseSettings):
@@ -37,7 +47,7 @@ class Config(BaseSettings):
     ollama_model: Annotated[str, Field(min_length=1)]
     ollama_timeout: Annotated[int, Field(gt=0)]
     ollama_batch_size: Annotated[int, Field(gt=0)]
-    ollama_keep_alive: Annotated[str, Field(min_length=1)]
+    ollama_keep_alive: Annotated[int | str, BeforeValidator(_parse_keep_alive)]
     ollama_tokenizer: Annotated[str, Field(min_length=1)]
 
     @property
