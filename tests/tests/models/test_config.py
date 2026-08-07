@@ -83,11 +83,13 @@ class TestConfigModel:
     def test_es_indices(self, test_config: Config):
         """es_indices содержит все поля es_*_index_name."""
         indices = test_config.es_indices
-        assert len(indices) == 3
+        assert len(indices) == 4
         assert "es_documents_index_name" in indices
         assert indices["es_documents_index_name"] == test_config.es_documents_index_name
         assert "es_blogposts_index_name" in indices
         assert indices["es_blogposts_index_name"] == test_config.es_blogposts_index_name
+        assert "es_blogposts_text_chunks_index_name" in indices
+        assert indices["es_blogposts_text_chunks_index_name"] == test_config.es_blogposts_text_chunks_index_name
         assert "es_sales_index_name" in indices
         assert indices["es_sales_index_name"] == test_config.es_sales_index_name
 

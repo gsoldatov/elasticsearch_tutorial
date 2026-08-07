@@ -85,7 +85,7 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
     """Заглушка операций с блогпостами elastic-сервиса."""
 
     def __init__(self) -> None:
-        self.__embeddings = BlogpostsEmbeddingsMock()
+        self._embeddings = BlogpostsEmbeddingsMock()
         self.index_blogposts_calls: list[dict] = []
         self.create_calls: list[dict] = []
         self.get_calls: list[dict] = []
@@ -105,8 +105,8 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
         self.raise_on_search_tags: Exception | None = None
 
     @property
-    def _embeddings(self) -> BlogpostsEmbeddingsMock:
-        return self.__embeddings
+    def embeddings(self) -> BlogpostsEmbeddingsMock:
+        return self._embeddings
 
     def _next_id(self) -> str:
         self._id_counter += 1

@@ -65,7 +65,7 @@
         x nested dense_vector; // not implemented in ES 7.17
         + two indices:
             + blogposts (existing + title_vector: dense_vector, 768, cosine);
-            + blogpost_chunks (new, each doc = one text chunk):
+            + blogposts_text_chunks (new, each doc = one text chunk):
                 + fields: blogpost_id, chunk_index, chunk_text, chunk_vector;
             + chunk collapse at search: max score per blogpost_id;
             + fusion:
@@ -96,24 +96,25 @@
                 + requests embeddings for chunks in batches of up to 10, sequentially;
             + returns None for omitted args;
     
-    - integrate embedding processing, pt. 1:
-        - index_blogposts:
-            - each post gets embeddings before async_bulk;
-            - insert into 2 indices;
+    + integrate embedding processing, pt. 1:
+        + index_blogposts:
+            + each post gets embeddings before async_bulk;
+            + insert into 2 indices;
     
-    - migration script (r_0005_blogpost_vectors):
-        - upgrade:
-            - create blogposts_v3 with title_vector field (dense_vector, 768, cosine, hnsw);    // explore other possible settings before implementing
-            - reindex _v2 → _v3 (existing data without vectors);
-            - swap alias, delete _v2;
-            - create blogpost_chunks index (blogpost_id, chunk_idx, chunk_text, chunk_vector);
-            - for existing posts:
-                - generate embeddings;
-                - update title_vector;
-                - index chunks;
+    + migration script (r_0005_blogpost_vectors):
+        + upgrade:
+            x create blogposts_v3 with title_vector field (dense_vector, 384, cosine, hnsw);    // explore other possible settings before implementing
+            + create blogposts_v3 with title_vector field;  // dense_vector, 384 dims, hnsw & metrics are not present in ES 7
+            + reindex _v2 → _v3 (existing data without vectors);
+            + swap alias, delete _v2;
+            + create blogpost_chunks index (blogpost_id, chunk_idx, chunk_text, chunk_vector);
+            + for existing posts:
+                + generate embeddings;
+                + update title_vector;
+                + index chunks;
                 
-        - downgrade:
-            - reindex _v3 → _v2 (vectors are lost), swap alias, delete _v3 and blogpost_chunks;
+        + downgrade:
+            + reindex _v3 → _v2 (vectors are lost), swap alias, delete _v3 and blogpost_chunks;
     
     - integrate embedding processing, pt. 2:
         - error middleware:
@@ -131,6 +132,8 @@
 
         - ingest_blogposts.py:
             - check if reducing default post count and text size is needed;
+    
+    - print current progress in migration and ingestion scripts;
 
     - new endpoints (no min_time/max_time/tags filters):
         - GET /blogposts/vector_search?q=...;  // ANN + chunk collapse + linear fusion

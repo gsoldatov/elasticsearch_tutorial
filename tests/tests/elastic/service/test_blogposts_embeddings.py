@@ -12,7 +12,7 @@ from src.models.blogpost import BlogpostTextChunk
 
 async def test_get_embeddings(elastic_service: ElasticService):
     """Эмбеддинги для заголовка и текста: размерность 384, chunk_index."""
-    title_vector, chunks = await elastic_service.blogposts._embeddings.get_embeddings(
+    title_vector, chunks = await elastic_service.blogposts.embeddings.get_embeddings(
         blogpost_id="test-1",
         title="тестовый заголовок",
         text="тестовый текст блогпоста для проверки чанкинга. " * 5,
@@ -32,7 +32,7 @@ async def test_get_embeddings(elastic_service: ElasticService):
 
 async def test_no_args(elastic_service: ElasticService):
     """Без аргументов: оба None."""
-    title_vector, chunks = await elastic_service.blogposts._embeddings.get_embeddings(
+    title_vector, chunks = await elastic_service.blogposts.embeddings.get_embeddings(
         blogpost_id="test-2",
     )
 
@@ -42,7 +42,7 @@ async def test_no_args(elastic_service: ElasticService):
 
 async def test_empty_text_no_chunks(elastic_service: ElasticService):
     """Пустой текст не создаёт чанков."""
-    _title_vector, chunks = await elastic_service.blogposts._embeddings.get_embeddings(
+    _title_vector, chunks = await elastic_service.blogposts.embeddings.get_embeddings(
         blogpost_id="test-3",
         text="",
     )
@@ -62,7 +62,7 @@ async def test_nonexistent_host_raises_embeddings_error(test_config):
     es = ElasticService(cfg)
     try:
         with pytest.raises(EmbeddingsNetworkError):
-            await es.blogposts._embeddings.get_embeddings(
+            await es.blogposts.embeddings.get_embeddings(
                 blogpost_id="test-err",
                 title="заголовок",
             )
@@ -81,7 +81,7 @@ async def test_connection_refused_raises_embeddings_error(test_config):
     es = ElasticService(cfg)
     try:
         with pytest.raises(EmbeddingsNetworkError):
-            await es.blogposts._embeddings.get_embeddings(
+            await es.blogposts.embeddings.get_embeddings(
                 blogpost_id="test-err",
                 title="заголовок",
             )
@@ -92,14 +92,14 @@ async def test_connection_refused_raises_embeddings_error(test_config):
 async def test_timeout_raises_embeddings_error(elastic_service: ElasticService):
     """Таймаут httpx → EmbeddingsNetworkError."""
     # Форсируем создание клиента до патча
-    client = elastic_service.blogposts._embeddings._get_ollama_client()
+    client = elastic_service.blogposts.embeddings._get_ollama_client()
 
     with patch.object(
         client._client, "request",
         AsyncMock(side_effect=httpx.TimeoutException("timeout")),
     ):
         with pytest.raises(EmbeddingsNetworkError):
-            await elastic_service.blogposts._embeddings.get_embeddings(
+            await elastic_service.blogposts.embeddings.get_embeddings(
                 blogpost_id="test-err",
                 title="заголовок",
             )

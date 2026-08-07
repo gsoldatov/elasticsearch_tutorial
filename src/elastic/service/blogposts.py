@@ -29,11 +29,11 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
 
     def __init__(self, _es: "ElasticService") -> None:
         self._es = _es
-        self.__embeddings = BlogpostsEmbeddings(_es)
+        self._embeddings = BlogpostsEmbeddings(_es)
 
     @property
-    def _embeddings(self) -> BlogpostsEmbeddings:
-        return self.__embeddings
+    def embeddings(self) -> BlogpostsEmbeddings:
+        return self._embeddings
 
     @property
     def client(self):
@@ -42,20 +42,46 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
     # ── CRUD ────────────────────────────────────────────────────────────
 
     async def index_blogposts(self, blogposts: list[Blogpost]) -> None:
-        """Массовая индексация блогпостов.
+        """Массовая индексация блогпостов с эмбеддингами.
 
-        id модели используется как ES _id, в _source попадают
-        все поля кроме id.
+        Для каждого поста получает эмбеддинги заголовка и текста,
+        затем вставляет документы в индекс блогпостов (с title_vector)
+        и чанки текста в индекс чанков.
         """
-        actions = [
-            {
+        blogpost_actions: list[dict] = []
+        chunk_actions: list[dict] = []
+
+        for bp in blogposts:
+            title_vector, chunks = await self.embeddings.get_embeddings(
+                bp.id, title=bp.title, text=bp.text,
+            )
+
+            doc = bp.model_dump(mode="json", exclude={"id"})
+            if title_vector is not None:
+                doc["title_vector"] = title_vector
+
+            blogpost_actions.append({
                 "_index": self._es._config.es_blogposts_index_name,
                 "_id": bp.id,
-                "_source": bp.model_dump(mode="json", exclude={"id"}),
-            }
-            for bp in blogposts
-        ]
-        await async_bulk(self.client, actions, refresh=self._es._refresh)
+                "_source": doc,
+            })
+
+            for chunk in chunks:
+                chunk_actions.append({
+                    "_index": self._es._config.es_blogposts_text_chunks_index_name,
+                    "_source": chunk.model_dump(mode="json"),
+                })
+
+        if blogpost_actions:
+            await async_bulk(
+                self.client, blogpost_actions,
+                refresh=self._es._refresh,
+            )
+        if chunk_actions:
+            await async_bulk(
+                self.client, chunk_actions,
+                refresh=self._es._refresh,
+            )
 
     @internal_validation
     async def create(self, data: BlogpostCreate) -> Blogpost:

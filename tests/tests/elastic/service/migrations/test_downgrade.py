@@ -12,7 +12,7 @@ async def test_downgrade_head_to_base_deletes_index(
     test_config: Config,
 ):
     """downgrade с head на base удаляет все индексы (включая версионированные)."""
-    assert len(test_config.es_indices) == 3, (
+    assert len(test_config.es_indices) == 4, (
         "Добавлен новый ES-индекс — обнови этот тест."
     )
     cfg = Config(**{
@@ -57,7 +57,7 @@ async def test_downgrade_head_to_base_deletes_pipelines(
         await es.migrations.upgrade(current="base", to="head")
         await es.migrations.downgrade(current="head", to="base")
 
-        assert len(es.migrations._revisions) == 4, (
+        assert len(es.migrations._revisions) == 5, (
             "Добавлена новая миграция — обнови этот тест: "
             "проверь, что список ожидаемых pipelines актуален."
         )
@@ -89,7 +89,7 @@ async def test_downgrade_head_to_base_deletes_aliases(
         await es.migrations.upgrade(current="base", to="head")
         await es.migrations.downgrade(current="head", to="base")
 
-        assert len(es.migrations._revisions) == 4, (
+        assert len(es.migrations._revisions) == 5, (
             "Добавлена новая миграция — обнови этот тест: "
             "проверь, что список ожидаемых aliases актуален."
         )
@@ -130,6 +130,6 @@ async def test_downgrade_invalid_revision_raises(
             await es.migrations.downgrade(current="abc", to="base")
 
         with pytest.raises(ValueError, match="вне диапазона"):
-            await es.migrations.downgrade(current="5", to="base")
+            await es.migrations.downgrade(current="6", to="base")
     finally:
         await es.close()

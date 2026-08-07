@@ -40,6 +40,7 @@ def test_config(test_uuid: str) -> Config:
     config.db_app_database = f"{config.db_app_database}_test_{test_uuid}"
     config.es_documents_index_name = f"{config.es_documents_index_name}_test_{test_uuid}"
     config.es_blogposts_index_name = f"{config.es_blogposts_index_name}_test_{test_uuid}"
+    config.es_blogposts_text_chunks_index_name = f"{config.es_blogposts_text_chunks_index_name}_test_{test_uuid}"
     config.es_sales_index_name = f"{config.es_sales_index_name}_test_{test_uuid}"
     return config
 

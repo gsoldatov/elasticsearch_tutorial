@@ -48,7 +48,7 @@ class ElasticBlogpostsServiceBase(ABC):
 
     @property
     @abstractmethod
-    def _embeddings(self) -> "BlogpostsEmbeddingsBase":
+    def embeddings(self) -> "BlogpostsEmbeddingsBase":
         """Эмбеддинги."""
 
     @abstractmethod

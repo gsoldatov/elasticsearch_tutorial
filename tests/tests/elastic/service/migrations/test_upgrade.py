@@ -55,6 +55,6 @@ async def test_upgrade_invalid_revision_raises(
             await es.migrations.upgrade(current="foo", to="head")
 
         with pytest.raises(ValueError, match="вне диапазона"):
-            await es.migrations.upgrade(current="base", to="5")
+            await es.migrations.upgrade(current="base", to="6")
     finally:
         await es.close()

@@ -1,12 +1,38 @@
 """Тесты ElasticBlogpostsService."""
 
 from datetime import datetime, timezone
+from typing import AsyncGenerator
 
 import pytest
 
 from src.elastic import ElasticService
 from src.exceptions import NotFoundException, UpdateConflict
+from src.models.blogpost import BlogpostTextChunk
+from tests.mocks.elastic_mock import BlogpostsEmbeddingsMock
 from tests.mocks.elastic_operations import ElasticOperations
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# fixtures
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+@pytest.fixture
+async def mock_blogposts_embeddings(
+    elastic_service: ElasticService,
+) -> AsyncGenerator[BlogpostsEmbeddingsMock, None]:
+    """Подменяет embeddings на замоканную версию.
+
+    Возвращает BlogpostsEmbeddingsMock — тест может настроить
+    результат через set_result(blogpost_id, title_vector, chunks).
+    """
+    mock = BlogpostsEmbeddingsMock()
+    orig = elastic_service.blogposts._embeddings
+    elastic_service.blogposts._embeddings = mock
+    try:
+        yield mock
+    finally:
+        elastic_service.blogposts._embeddings = orig
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -145,9 +171,37 @@ async def test_get_existing_blogpost(
 async def test_index_blogposts_bulk(
     elastic_service: ElasticService,
     elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
     data_generator,
 ):
-    """Массовая индексация блогпостов."""
+    """Массовая индексация блогпостов: title_vector добавляется в _source,
+    чанки индексируются в отдельный индекс."""
+    mock_vector = [0.1] * 384
+    mock_chunks = [
+        BlogpostTextChunk(
+            blogpost_id="5",
+            chunk_index=0,
+            chunk_text="Text 5",
+            chunk_vector=mock_vector,
+        ),
+        BlogpostTextChunk(
+            blogpost_id="5",
+            chunk_index=1,
+            chunk_text="Text 5 продолжение",
+            chunk_vector=mock_vector,
+        ),
+    ]
+
+    # По умолчанию возвращаем вектор без чанков; для "5" — с чанками
+    mock_blogposts_embeddings.set_result(
+        "5", title_vector=mock_vector, chunks=mock_chunks,
+    )
+    for i in range(1, 11):
+        if i != 5:
+            mock_blogposts_embeddings.set_result(
+                str(i), title_vector=mock_vector,
+            )
+
     blogposts = [
         data_generator.blogposts.blogpost(
             id=str(i),
@@ -160,9 +214,33 @@ async def test_index_blogposts_bulk(
     ]
     await elastic_service.blogposts.index_blogposts(blogposts)
 
+    # Документы в индексе блогпостов
     assert elastic_operations.blogposts.count() == 10
     bp = await elastic_service.blogposts.get("5")
     assert bp.title == "Post 5"
+
+    # title_vector присутствует в _source
+    raw = elastic_operations.blogposts.get_blogpost("5")
+    assert raw is not None
+    assert "title_vector" in raw
+    assert len(raw["title_vector"]) == 384
+
+    # Чанки в индексе чанков
+    chunks_client = elastic_operations._client
+    chunks_count = chunks_client.count(
+        index=elastic_operations._config.es_blogposts_text_chunks_index_name,
+    )
+    assert chunks_count["count"] == 2
+
+    # Проверка содержимого чанков
+    chunks_resp = chunks_client.search(
+        index=elastic_operations._config.es_blogposts_text_chunks_index_name,
+        body={"query": {"match_all": {}}},
+    )
+    chunk_hits = chunks_resp["hits"]["hits"]
+    assert len(chunk_hits) == 2
+    chunk_ids = {h["_source"]["blogpost_id"] for h in chunk_hits}
+    assert chunk_ids == {"5"}
 
 
 # ══════════════════════════════════════════════════════════════════════════════

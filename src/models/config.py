@@ -40,6 +40,7 @@ class Config(BaseSettings):
     es_superuser_password: Annotated[str, Field(min_length=1)]
     es_documents_index_name: Annotated[str, Field(min_length=1)]
     es_blogposts_index_name: Annotated[str, Field(min_length=1)]
+    es_blogposts_text_chunks_index_name: Annotated[str, Field(min_length=1)]
     es_sales_index_name: Annotated[str, Field(min_length=1)]
 
     ollama_host: Annotated[str, Field(min_length=1)]
