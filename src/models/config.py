@@ -47,7 +47,7 @@ class Config(BaseSettings):
     ollama_model: Annotated[str, Field(min_length=1)]
     ollama_timeout: Annotated[int, Field(gt=0)]
     ollama_batch_size: Annotated[int, Field(gt=0)]
-    ollama_keep_alive: Annotated[int | str, BeforeValidator(_parse_keep_alive)]
+    ollama_keep_alive: Annotated[int | str, Field(min_length=1), BeforeValidator(_parse_keep_alive)]
     ollama_tokenizer: Annotated[str, Field(min_length=1)]
 
     @property
