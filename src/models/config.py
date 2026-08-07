@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from pydantic import BeforeValidator, Field
+from pydantic import BeforeValidator, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -47,8 +47,15 @@ class Config(BaseSettings):
     ollama_model: Annotated[str, Field(min_length=1)]
     ollama_timeout: Annotated[int, Field(gt=0)]
     ollama_batch_size: Annotated[int, Field(gt=0)]
-    ollama_keep_alive: Annotated[int | str, Field(min_length=1), BeforeValidator(_parse_keep_alive)]
+    ollama_keep_alive: Annotated[int | str, BeforeValidator(_parse_keep_alive)]
     ollama_tokenizer: Annotated[str, Field(min_length=1)]
+
+    @field_validator("ollama_keep_alive", mode="after")
+    @classmethod
+    def _validate_keep_alive_not_empty(cls, v: int | str) -> int | str:
+        if isinstance(v, str) and v == "":
+            raise ValueError("ollama_keep_alive не может быть пустой строкой")
+        return v
 
     @property
     def db_app_url(self) -> str:
