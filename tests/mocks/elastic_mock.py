@@ -1,4 +1,5 @@
 from datetime import date, datetime, timezone
+from unittest.mock import AsyncMock
 
 from src.elastic import (
     BlogpostsEmbeddingsBase,
@@ -47,6 +48,9 @@ class BlogpostsEmbeddingsMock(BlogpostsEmbeddingsBase):
         self.raise_on_get_embeddings: Exception | None = None
         self._title_vectors: dict[str, list[float]] = {}
         self._chunk_vectors: dict[str, list[BlogpostTextChunk]] = {}
+
+    def _get_ollama_client(self) -> AsyncMock:
+        return AsyncMock()
 
     def set_result(
         self,
