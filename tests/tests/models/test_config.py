@@ -58,6 +58,8 @@ class TestConfigModel:
             Config(**{**data, "ollama_model": ""})
         with pytest.raises(ValidationError):
             Config(**{**data, "ollama_keep_alive": ""})
+        with pytest.raises(ValidationError):
+            Config(**{**data, "ollama_tokenizer": ""})
 
     def test_empty_es_string_field_raises(self, test_config: Config):
         data = test_config.model_dump()

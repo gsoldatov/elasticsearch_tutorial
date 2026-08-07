@@ -38,6 +38,7 @@ class Config(BaseSettings):
     ollama_timeout: Annotated[int, Field(gt=0)]
     ollama_batch_size: Annotated[int, Field(gt=0)]
     ollama_keep_alive: Annotated[str, Field(min_length=1)]
+    ollama_tokenizer: Annotated[str, Field(min_length=1)]
 
     @property
     def db_app_url(self) -> str:
