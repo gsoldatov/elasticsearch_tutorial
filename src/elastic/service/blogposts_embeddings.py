@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 
 # ── Константы чанкинга ──────────────────────────────────────────────────
 
-_CHUNK_SIZE = 512   # токенов на чанк
-_CHUNK_OVERLAP = 52  # токенов перекрытия
+_CHUNK_SIZE = 250   # токенов на чанк (модель all-MiniLM-L6-v2: контекст 256 токенов)
+_CHUNK_OVERLAP = 25  # токенов перекрытия
 
 
 class BlogpostsEmbeddings(BlogpostsEmbeddingsBase):

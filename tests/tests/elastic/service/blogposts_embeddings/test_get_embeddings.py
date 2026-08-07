@@ -9,7 +9,7 @@ from src.models.blogpost import BlogpostTextChunk
 
 
 async def test_get_embeddings(elastic_service: ElasticService):
-    """Эмбеддинги для заголовка и текста: размерность 768, chunk_index."""
+    """Эмбеддинги для заголовка и текста: размерность 384, chunk_index."""
     title_vector, chunks = await elastic_service.blogposts._embeddings.get_embeddings(
         blogpost_id="test-1",
         title="тестовый заголовок",
@@ -17,14 +17,14 @@ async def test_get_embeddings(elastic_service: ElasticService):
     )
 
     assert title_vector is not None
-    assert len(title_vector) == 768
+    assert len(title_vector) == 384
     assert all(isinstance(v, float) for v in title_vector)
 
     assert len(chunks) > 0
     for idx, chunk in enumerate(chunks):
         assert isinstance(chunk, BlogpostTextChunk)
         assert chunk.blogpost_id == "test-1"
-        assert len(chunk.chunk_vector) == 768
+        assert len(chunk.chunk_vector) == 384
         assert chunk.chunk_index == idx
 
 
