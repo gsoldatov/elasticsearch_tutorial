@@ -1,3 +1,4 @@
+import random
 from datetime import date, datetime, timezone
 from unittest.mock import AsyncMock
 
@@ -68,6 +69,9 @@ class BlogpostsEmbeddingsMock(BlogpostsEmbeddingsBase):
         self, blogpost_id: str, *,
         title: str | None = None, text: str | None = None,
     ) -> tuple[list[float] | None, list[BlogpostTextChunk]]:
+        """Возвращает эмбеддинги: явно заданные через set_result,
+        или случайный вектор размерности 384, если передан title
+        и результат не был переопределён."""
         if self.raise_on_get_embeddings is not None:
             raise self.raise_on_get_embeddings
         self.get_embeddings_calls.append({
@@ -75,10 +79,18 @@ class BlogpostsEmbeddingsMock(BlogpostsEmbeddingsBase):
             "title": title,
             "text": text,
         })
-        return (
-            self._title_vectors.get(blogpost_id),
-            self._chunk_vectors.get(blogpost_id, []),
-        )
+
+        # Явно заданный результат приоритетнее случайного
+        if blogpost_id in self._title_vectors:
+            title_vector = self._title_vectors[blogpost_id]
+        elif title is not None:
+            title_vector = [random.random() for _ in range(384)]
+        else:
+            title_vector = None
+
+        chunks = self._chunk_vectors.get(blogpost_id, [])
+
+        return title_vector, chunks
 
 
 class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
