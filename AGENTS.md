@@ -1,10 +1,11 @@
 # Overview
-A simple project implementing a web app integration with a relational DB and an Elastic full-text search index.
+A tutorial project for Elasticsearch, which focuses on using its key features and integratins ES with a Python web app and a relational DB.
 
 Stack used:
 - Python 3.13 + uv;
 - PostgreSQL 17;
-- Elasticsearch 9;
+- Elasticsearch 7.17;
+- Ollama for embedding inference;
 - FastAPI;
 - SQLAlchemy2 + psycopg3 + alembic;
 - Pydantic + Pydantic Settings;
@@ -18,7 +19,7 @@ Stack used:
     - `db/` — SQLAlchemy ORM models, Alembic migrations, repository layer, admin scripts:
         - `alembic/` — Alembic migrations;
         - `repository/` — repository classes (facade `Repository` + per-entity repositories);
-    - `elastic/` — Elastic client, configuration and related utilities;
+    - `elastic/` — Elastic client, configuration, Ollama interaction and related utilities;
     - `middleware/` — middleware dir;
     - `models/` — Pydantic models (config, document schemas);
     - `routes/` — route handlers with sub-routers per resource;
@@ -57,7 +58,10 @@ Stack used:
                 - should try to throw where applicable to reduce the risk of out of order errors;
                 - new indices should use aliases, so that they could be updated in future revisions via reindex + alias change;
             - `downgrade`:
-                - should try to be idempotent and allow partial rollback of the applied changes, so that it's possible to revert changes, if they didn't apply properly
+                - should try to be idempotent and allow partial rollback of the applied changes, so that it's possible to revert changes, if they didn't apply properly;
+- Ollama container:
+    - used for inferring embeddings of text data;
+    - should be mocked in tests, except for the test cases that directly test interaction with it;
 - error messages, comments (including separation comments) and README are in Russian; code is in English;
 
 - tests:
