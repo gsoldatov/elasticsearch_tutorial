@@ -2,6 +2,8 @@
 
 from elasticsearch import ConnectionError
 
+from src.exceptions import EmbeddingsNetworkError
+
 
 # ── ошибки ─────────────────────────────────────────────────────────────────
 
@@ -11,6 +13,23 @@ async def test_create_es_connection_error_returns_503(
 ):
     """Ошибка соединения с ES — 503."""
     elastic_service_mock.blogposts.raise_on_create = ConnectionError("cluster down")
+
+    response = await test_client_no_db.post(
+        "/blogposts/",
+        json={"title": "T", "text": "X", "tags": ["a"]},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Сервис недоступен"
+
+
+async def test_create_ollama_error_returns_503(
+    test_client_no_db, elastic_service_mock,
+):
+    """Ошибка Ollama при создании блогпоста — 503."""
+    elastic_service_mock.blogposts.raise_on_create = EmbeddingsNetworkError(
+        "ollama down"
+    )
 
     response = await test_client_no_db.post(
         "/blogposts/",

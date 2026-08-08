@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from elasticsearch import ConnectionError
 
-from src.exceptions import UpdateConflict
+from src.exceptions import EmbeddingsNetworkError, UpdateConflict
 
 
 # ── ошибки ─────────────────────────────────────────────────────────────────
@@ -27,6 +27,23 @@ async def test_update_es_connection_error_returns_503(
 ):
     """Ошибка соединения с ES — 503."""
     elastic_service_mock.blogposts.raise_on_update = ConnectionError("cluster down")
+
+    response = await test_client_no_db.patch(
+        "/blogposts/some-id",
+        json={"title": "New"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Сервис недоступен"
+
+
+async def test_update_ollama_error_returns_503(
+    test_client_no_db, elastic_service_mock,
+):
+    """Ошибка Ollama при обновлении блогпоста — 503."""
+    elastic_service_mock.blogposts.raise_on_update = EmbeddingsNetworkError(
+        "ollama down"
+    )
 
     response = await test_client_no_db.patch(
         "/blogposts/some-id",

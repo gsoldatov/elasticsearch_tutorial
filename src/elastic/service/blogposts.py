@@ -85,9 +85,16 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
 
     @internal_validation
     async def create(self, data: BlogpostCreate) -> Blogpost:
-        """Создание блогпоста. Если id не передан — ES генерирует авто-id.
-        Если id передан и уже существует — 409."""
+        """Создание блогпоста с эмбеддингами.
+
+        Двухфазный подход:
+        1. Индексация без векторов → получение _id.
+        2. Получение эмбеддингов для заголовка и текста.
+        3. Частичное обновление документа с title_vector, если получен.
+        4. Индексация чанков текста в индекс blogposts_text_chunks.
+        """
         index = self._es._config.es_blogposts_index_name
+        chunks_index = self._es._config.es_blogposts_text_chunks_index_name
         body = data.model_dump(mode="json", exclude_none=True)
         doc_id = body.pop("id", None)
         args: dict = {"index": index, "body": body}
@@ -104,7 +111,37 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
                 f"Блогпост с id '{doc_id}' уже существует."
             ) from None
 
-        created = await self.client.get(index=index, id=response["_id"])
+        created_id = response["_id"]
+
+        # Получение эмбеддингов
+        title_vector, chunks = await self.embeddings.get_embeddings(
+            created_id, title=data.title, text=data.text,
+        )
+
+        # Частичное обновление документа с title_vector
+        if title_vector is not None:
+            await self.client.update(
+                index=index,
+                id=created_id,
+                doc={"title_vector": title_vector},
+                refresh=self._es._refresh,
+            )
+
+        # Индексация чанков текста
+        if chunks:
+            chunk_actions = [
+                {
+                    "_index": chunks_index,
+                    "_source": chunk.model_dump(mode="json"),
+                }
+                for chunk in chunks
+            ]
+            await async_bulk(
+                self.client, chunk_actions,
+                refresh=self._es._refresh,
+            )
+
+        created = await self.client.get(index=index, id=created_id)
         return Blogpost(id=created["_id"], **created["_source"])
 
     @internal_validation
@@ -119,11 +156,27 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
 
     @internal_validation
     async def update(self, blogpost_id: str, data: BlogpostUpdate) -> Blogpost:
-        """Частичное обновление блогпоста с optimistic lock (до 3 попыток)."""
+        """Частичное обновление блогпоста с optimistic lock (до 3 попыток).
+
+        Эмбеддинги вычисляются до обновления ES (fail-fast):
+        если Ollama недоступен, документ не затрагивается.
+        """
         index = self._es._config.es_blogposts_index_name
+        chunks_index = self._es._config.es_blogposts_text_chunks_index_name
+
+        # Вычисление эмбеддингов до обновления ES (fail-fast)
+        title_vector: list[float] | None = None
+        chunks: list = []
+        if data.title is not None or data.text is not None:
+            title_vector, chunks = await self.embeddings.get_embeddings(
+                blogpost_id, title=data.title, text=data.text,
+            )
+
         body = data.model_dump(mode="json", exclude_none=True)
         if "updated_at" not in body:
             body["updated_at"] = datetime.now(timezone.utc)
+        if title_vector is not None:
+            body["title_vector"] = title_vector
 
         try:
             response = await self.client.update(
@@ -140,17 +193,46 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
         except EsNotFoundError:
             raise NotFoundException(f"Блогпост {blogpost_id} не найден")
 
+        # Замена чанков текста
+        if chunks:
+            await self.client.options(ignore_status=[404]).delete_by_query(
+                index=chunks_index,
+                body={
+                    "query": {"term": {"blogpost_id": blogpost_id}},
+                },
+                refresh=self._es._refresh,
+            )
+            chunk_actions = [
+                {
+                    "_index": chunks_index,
+                    "_source": chunk.model_dump(mode="json"),
+                }
+                for chunk in chunks
+            ]
+            await async_bulk(
+                self.client, chunk_actions,
+                refresh=self._es._refresh,
+            )
+
         return Blogpost(
             id=response["_id"],
             **response["get"]["_source"],
         )
 
     async def delete(self, blogpost_id: str) -> None:
-        """Удаление блогпоста. Идемпотентно: не найдено → не ошибка."""
+        """Удаление блогпоста и его чанков. Идемпотентно: не найдено → не ошибка."""
         index = self._es._config.es_blogposts_index_name
+        chunks_index = self._es._config.es_blogposts_text_chunks_index_name
         await self.client.options(ignore_status=[404]).delete(
             index=index,
             id=blogpost_id,
+            refresh=self._es._refresh,
+        )
+        await self.client.options(ignore_status=[404]).delete_by_query(
+            index=chunks_index,
+            body={
+                "query": {"term": {"blogpost_id": blogpost_id}},
+            },
             refresh=self._es._refresh,
         )
 

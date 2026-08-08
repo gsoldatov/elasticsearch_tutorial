@@ -22,7 +22,7 @@
         + read;
         + update:
             + partial;
-            + optimistic (if_seq_no + if_primary_term);
+            x optimistic (if_seq_no + if_primary_term);     // does not add any protection when running multiple update statements (main index + text chunks with vector fields)
         + delete;
 
         + full-text search:
@@ -116,22 +116,24 @@
         + downgrade:
             + reindex _v3 → _v2 (vectors are lost), swap alias, delete _v3 and blogpost_chunks;
     
-    - integrate embedding processing, pt. 2:
-        - error middleware:
-            - network errors when calling embedding model → 503;
-            - explore Ollama SDK to decide which error to catch in middleware - Ollama's or custom app-level exception;
+    + integrate embedding processing, pt. 2:
+        + error middleware:
+            + network errors when calling embedding model → 503;
+            + explore Ollama SDK to decide which error to catch in middleware + Ollama's or custom app-level exception;     // app-level
 
-        - CRUD integration:
-            - create:
-                - embeddings generated before indexing;
-                - insert into 2 indices;
-            - update:
+        + CRUD integration:
+            + create:
+                + embeddings generated before indexing;
+                + insert into 2 indices;
+            + update:
                 - embeddings recomputed only for fields present in PATCH body;
-                - update title_vector, if `title` is modified;
-                - delete + insert new chunks, if `text` is modified;
+                + update title_vector, if `title` is modified;
+                + delete + insert new chunks, if `text` is modified;
+            + delete:
+                + delete from both indices;
 
-        - ingest_blogposts.py:
-            - check if reducing default post count and text size is needed;
+    - ingest_blogposts.py:
+        - check if reducing default post count and text size is needed;
     
     - print current progress in migration and ingestion scripts;
 
