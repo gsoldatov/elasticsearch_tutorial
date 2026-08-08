@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 from typing import AsyncGenerator, Generator
+from unittest.mock import patch
 from uuid import uuid4
 
 import psycopg
@@ -22,7 +23,7 @@ from src.elastic import ElasticService
 from src.models.config import Config
 from tests.mocks.data_generator import DataGenerator
 from tests.mocks.db_operations import DBOperations
-from tests.mocks.elastic_mock import ElasticServiceMock
+from tests.mocks.elastic_mock import BlogpostsEmbeddingsMock, ElasticServiceMock
 from tests.mocks.elastic_operations import ElasticOperations
 
 
@@ -84,14 +85,20 @@ def test_db_migrations(test_db: psycopg.Connection, test_config: Config) -> None
 async def test_elastic_migrations(
     test_config: Config
 ) -> AsyncGenerator[None, None]:
-    """Применяет ES-миграции к тестовым индексам."""
+    """Применяет ES-миграции к тестовым индексам.
+
+    На время миграций объект для взаимодействия с Ollama замокан,
+    чтобы предотвратить случайные обращения к нему и трату времени на инференс.
+    """
     es = ElasticService(test_config)
-    try:
-        await es.migrations.upgrade(current="base", to="head")
-        yield
-    finally:
-        await es.migrations.delete_indices()
-        await es.close()
+    mock_embeddings = BlogpostsEmbeddingsMock()
+    with patch.object(es.blogposts, "_embeddings", mock_embeddings):
+        try:
+            await es.migrations.upgrade(current="base", to="head")
+            yield
+        finally:
+            await es.migrations.delete_indices()
+            await es.close()
 
 
 # ── Уровень функции ───────────────────────────────────────────────────────
