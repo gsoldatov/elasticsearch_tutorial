@@ -7,6 +7,7 @@ from src.models.blogpost import BlogpostTextChunk
 from src.models.config import Config
 from src.elastic import ElasticService
 from tests.mocks.elastic_mock import BlogpostsEmbeddingsMock
+from tests.mocks.elastic_operations import ElasticOperations
 
 
 # ── fixtures ───────────────────────────────────────────────────────────────
@@ -16,7 +17,7 @@ from tests.mocks.elastic_mock import BlogpostsEmbeddingsMock
 async def elastic_with_mocked_embeddings(
     request: pytest.FixtureRequest,
     test_config: Config,
-) -> AsyncGenerator[tuple[ElasticService, BlogpostsEmbeddingsMock], None]:
+) -> AsyncGenerator[tuple[ElasticService, BlogpostsEmbeddingsMock, ElasticOperations], None]:
     """ElasticService с замоканными эмбеддингами и авто-очисткой.
 
     Настраивает уникальные имена индексов по имени теста,
@@ -35,13 +36,15 @@ async def elastic_with_mocked_embeddings(
         ),
     })
     es = ElasticService(cfg, refresh=True)
+    elastic_ops = ElasticOperations(cfg)
     mock = BlogpostsEmbeddingsMock()
     orig = es.blogposts._embeddings
     es.blogposts._embeddings = mock
     try:
-        yield es, mock
+        yield es, mock, elastic_ops
     finally:
         es.blogposts._embeddings = orig
+        elastic_ops.close()
         await es.migrations.delete_indices()
         await es.close()
 
@@ -51,11 +54,11 @@ async def elastic_with_mocked_embeddings(
 
 async def test_upgrade_adds_title_vector_and_chunks(
     elastic_with_mocked_embeddings: tuple[
-        ElasticService, BlogpostsEmbeddingsMock,
+        ElasticService, BlogpostsEmbeddingsMock, ElasticOperations,
     ],
 ):
     """Миграция создаёт _v3 с title_vector и индекс чанков, данные переносятся."""
-    es, mock = elastic_with_mocked_embeddings
+    es, mock, elastic_ops = elastic_with_mocked_embeddings
     cfg = es._config
 
     mock_vector = [0.1] * 384
@@ -128,13 +131,9 @@ async def test_upgrade_adds_title_vector_and_chunks(
     assert len(doc["title_vector"]) == 384
 
     # Чанки в индексе чанков
-    chunks_resp = await es.client.search(
-        index=chunks_index,
-        body={"query": {"match_all": {}}},
-    )
-    chunk_hits = chunks_resp["hits"]["hits"]
-    assert len(chunk_hits) == 1
-    cs = chunk_hits[0]["_source"]
+    chunks = elastic_ops.blogposts_text_chunks.get_all()
+    assert len(chunks) == 1
+    cs = chunks[0]
     assert cs["blogpost_id"] == "bp-1"
     assert cs["chunk_index"] == 0
     assert cs["chunk_text"] == mock_chunks[0].chunk_text
@@ -143,11 +142,11 @@ async def test_upgrade_adds_title_vector_and_chunks(
 
 async def test_upgrade_already_done_raises(
     elastic_with_mocked_embeddings: tuple[
-        ElasticService, BlogpostsEmbeddingsMock,
+        ElasticService, BlogpostsEmbeddingsMock, ElasticOperations,
     ],
 ):
     """Повторный upgrade 3→5 падает — _v3 уже существует."""
-    es, mock = elastic_with_mocked_embeddings
+    es, mock, _elastic_ops = elastic_with_mocked_embeddings
 
     mock_vector = [0.1] * 384
     mock.set_result("bp-1", title_vector=mock_vector)
@@ -163,11 +162,11 @@ async def test_upgrade_already_done_raises(
 
 async def test_downgrade_removes_vectors(
     elastic_with_mocked_embeddings: tuple[
-        ElasticService, BlogpostsEmbeddingsMock,
+        ElasticService, BlogpostsEmbeddingsMock, ElasticOperations,
     ],
 ):
     """downgrade 5→3 удаляет _v3 и индекс чанков, восстанавливает _v2 без векторов."""
-    es, mock = elastic_with_mocked_embeddings
+    es, mock, _elastic_ops = elastic_with_mocked_embeddings
     cfg = es._config
 
     mock_vector = [0.1] * 384
@@ -224,11 +223,11 @@ async def test_downgrade_removes_vectors(
 
 async def test_downgrade_idempotent(
     elastic_with_mocked_embeddings: tuple[
-        ElasticService, BlogpostsEmbeddingsMock,
+        ElasticService, BlogpostsEmbeddingsMock, ElasticOperations,
     ],
 ):
     """Повторный downgrade не падает."""
-    es, mock = elastic_with_mocked_embeddings
+    es, mock, _elastic_ops = elastic_with_mocked_embeddings
 
     mock_vector = [0.1] * 384
     mock.set_result("bp-1", title_vector=mock_vector)

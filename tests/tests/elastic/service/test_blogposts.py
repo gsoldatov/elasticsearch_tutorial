@@ -226,20 +226,12 @@ async def test_index_blogposts_bulk(
     assert len(raw["title_vector"]) == 384
 
     # Чанки в индексе чанков
-    chunks_client = elastic_operations._client
-    chunks_count = chunks_client.count(
-        index=elastic_operations._config.es_blogposts_text_chunks_index_name,
-    )
-    assert chunks_count["count"] == 2
+    assert elastic_operations.blogposts_text_chunks.count() == 2
 
     # Проверка содержимого чанков
-    chunks_resp = chunks_client.search(
-        index=elastic_operations._config.es_blogposts_text_chunks_index_name,
-        body={"query": {"match_all": {}}},
-    )
-    chunk_hits = chunks_resp["hits"]["hits"]
-    assert len(chunk_hits) == 2
-    chunk_ids = {h["_source"]["blogpost_id"] for h in chunk_hits}
+    chunks = elastic_operations.blogposts_text_chunks.get_all()
+    assert len(chunks) == 2
+    chunk_ids = {c["blogpost_id"] for c in chunks}
     assert chunk_ids == {"5"}
 
 
