@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 from re import sub as re_sub
 from typing import TYPE_CHECKING
 
+import asyncio
+
 from elasticsearch import ConflictError
 from elasticsearch import NotFoundError as EsNotFoundError
 from elasticsearch.helpers import async_bulk
@@ -317,6 +319,133 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
             for hit in response["hits"]["hits"]
         ]
         return BlogpostSearchResult(items=items, total=total)
+
+    # ── Vector search ────────────────────────────────────────────────────────
+
+    @internal_validation
+    async def vector_search(
+        self, query: str, size: int = 20,
+    ) -> list[Blogpost]:
+        """Векторный поиск блогпостов: KNN по title_vector и chunk_vector
+        с линейным слиянием (title имеет вес 3x против text).
+
+        Ограничения текущей реализации:
+        - Поиск полным перебором (brute-force): ES 7.17 не поддерживает
+          индексирование dense_vector (HNSW добавлен в 8.x), поэтому
+          каждый запрос сканирует все документы индекса.
+        - Два запроса к ES (title + text chunks) вместо одного —
+          увеличивает latency.
+        - Документы без title_vector исключаются из title-результатов
+          через exists-фильтр (cosineSimilarity на отсутствующем поле
+          вызывает runtime error).
+        """
+        index = self._es._config.es_blogposts_index_name
+        chunks_index = self._es._config.es_blogposts_text_chunks_index_name
+
+        # Получаем эмбеддинг поискового запроса
+        query_vector = await self.embeddings.embed_query(query)
+
+        # ── Title-поиск: script_score по title_vector ─────────────────────
+        # ES 7.17: dense_vector не индексируется (нет HNSW),
+        # поэтому поиск полным перебором через script_score.
+        # cosineSimilarity возвращает [-1, 1]; отрицательные скоры
+        # исключаются ES автоматически — это корректно, т.к. они
+        # соответствуют семантически нерелевантным документам.
+        # +1.0 не добавляем: линейный сдвиг не меняет порядок сортировки.
+        title_body = {
+            "query": {
+                "script_score": {
+                    # exists-фильтр: скрипт выполняется только для документов,
+                    # у которых есть поле title_vector — без него
+                    # cosineSimilarity упадёт с runtime error
+                    "query": {"exists": {"field": "title_vector"}},
+                    "script": {
+                        "source": (
+                            "cosineSimilarity("
+                            "params.query_vector, 'title_vector'"
+                            ")"
+                        ),
+                        "params": {"query_vector": query_vector},
+                    },
+                },
+            },
+            "size": size * 5,
+            "_source": True,
+        }
+
+        # ── Text-поиск: script_score по chunk_vector с collapse ────────────
+        # collapse по blogpost_id оставляет один хит на документ
+        # с максимальным _score среди его чанков — это и есть
+        # «best score per document» для текста.
+        text_body = {
+            "query": {
+                "script_score": {
+                    "query": {"exists": {"field": "chunk_vector"}},
+                    "script": {
+                        "source": (
+                            "cosineSimilarity("
+                            "params.query_vector, 'chunk_vector'"
+                            ")"
+                        ),
+                        "params": {"query_vector": query_vector},
+                    },
+                },
+            },
+            "collapse": {"field": "blogpost_id"},
+            "size": size * 5,
+            "_source": False,
+        }
+
+        title_resp, text_resp = await asyncio.gather(
+            self.client.search(index=index, body=title_body),
+            self.client.search(index=chunks_index, body=text_body),
+        )
+
+        # ── Извлечение скоров ─────────────────────────────────────────────
+        title_scores: dict[str, float] = {}
+        for hit in title_resp["hits"]["hits"]:
+            title_scores[hit["_id"]] = hit["_score"] or 0.0
+
+        text_scores: dict[str, float] = {}
+        for hit in text_resp["hits"]["hits"]:
+            blogpost_id = hit["fields"]["blogpost_id"][0]
+            text_scores[blogpost_id] = hit["_score"] or 0.0
+
+        # ── Линейное слияние: final = 3 * title_score + text_score ───────
+        # Скоры из обоих запросов — чистый cosineSimilarity в [-1, 1],
+        # сравнимы напрямую. Title имеет вес 3x.
+        # Документы с отрицательным косинусом уже исключены ES.
+        all_ids: set[str] = set(title_scores) | set(text_scores)
+        fused: list[tuple[str, float]] = []
+        for doc_id in all_ids:
+            t_score = title_scores.get(doc_id, 0.0)
+            c_score = text_scores.get(doc_id, 0.0)
+            fused.append((doc_id, 3 * t_score + c_score))
+
+        fused.sort(key=lambda item: item[1], reverse=True)
+        top_ids = [doc_id for doc_id, _ in fused[:size]]
+
+        if not top_ids:
+            return []
+
+        # ── Получение полных документов ───────────────────────────────────
+        # mget не гарантирует порядок — восстанавливаем вручную;
+        # null-документы (удалённые между запросами) отфильтровываем.
+        mget_resp = await self.client.mget(
+            index=index,
+            body={"ids": top_ids},
+        )
+
+        doc_map: dict[str, dict] = {}
+        for doc in mget_resp["docs"]:
+            if doc["found"]:
+                doc_map[doc["_id"]] = doc["_source"]
+
+        return [
+            Blogpost(id=doc_id, **doc_map[doc_id])
+            for doc_id in top_ids
+            if doc_id in doc_map
+        ]
 
     async def search_tags(self, q: str) -> list[str]:
         """Префиксный поиск по тегам. Возвращает уникальные теги."""

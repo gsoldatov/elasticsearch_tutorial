@@ -97,6 +97,20 @@ async def search_tags(
 
 
 @router.get(
+    "/vector_search",
+    response_model=list[Blogpost],
+)
+async def vector_search_blogposts(
+    request: Request,
+    q: str = Query(min_length=1, max_length=256, description="Поисковый запрос"),
+) -> list[Blogpost]:
+    """Векторный поиск блогпостов: KNN по заголовку и чанкам текста
+    с линейным слиянием (title имеет вес 3x против text)."""
+    elastic_service = cast(ElasticServiceBase, request.app.state.elastic_service)
+    return await elastic_service.blogposts.vector_search(q)
+
+
+@router.get(
     "/{blogpost_id}",
     response_model=Blogpost,
     responses={

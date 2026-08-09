@@ -134,6 +134,7 @@ async def test_create_duplicate_id_raises_update_conflict(
 
 async def test_create_embeddings_error_propagates(
     elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
     mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
     data_generator,
 ):
@@ -962,3 +963,286 @@ async def test_search_tags_fewer_than_10(
     result = await elastic_service.blogposts.search_tags("py")
     assert len(result) == 5
     assert result == sorted(py_tags)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# vector_search
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Вспомогательная константа: «единичный» вектор, все компоненты 1.0.
+# После нормализации (L2) косинусное сходство с самим собой = 1.0.
+_IDENTITY_VECTOR = [1.0] * 384
+
+# Вектор, ортогональный единичному по первому измерению (0.0 vs 1.0).
+_OFF_VECTOR = [0.0] + [1.0] * 383
+
+
+# ── ошибки ─────────────────────────────────────────────────────────────────
+
+
+async def test_vector_search_embeddings_error_propagates(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """EmbeddingsNetworkError при vector_search пробрасывается."""
+    mock_blogposts_embeddings.raise_on_get_embeddings = EmbeddingsNetworkError(
+        "ollama down"
+    )
+
+    with pytest.raises(EmbeddingsNetworkError, match="ollama down"):
+        await elastic_service.blogposts.vector_search("запрос")
+
+
+# ── пустой индекс ──────────────────────────────────────────────────────────
+
+
+async def test_vector_search_empty_index_returns_empty_list(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """Векторный поиск по пустому индексу возвращает пустой список."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    result = await elastic_service.blogposts.vector_search("запрос")
+    assert result == []
+
+
+# ── поиск по title ─────────────────────────────────────────────────────────
+
+
+async def test_vector_search_finds_by_title(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """Документ с близким title_vector находится векторным поиском."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-title", "Заголовок", "Текст", ["tag"],
+        updated_at="2025-01-01T00:00:00Z",
+        title_vector=_IDENTITY_VECTOR,
+    )
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-off", "Другой", "Текст", ["tag"],
+        updated_at="2025-01-02T00:00:00Z",
+        title_vector=_OFF_VECTOR,
+    )
+
+    result = await elastic_service.blogposts.vector_search("запрос")
+    assert len(result) >= 1
+    # Документ с _IDENTITY_VECTOR должен быть первым (cos = 1.0)
+    assert result[0].id == "bp-title"
+
+
+# ── поиск по чанкам текста ─────────────────────────────────────────────────
+
+
+async def test_vector_search_finds_by_text_chunks(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """Документ с близким chunk_vector находится через индекс чанков."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    # Документ без title_vector — может попасть только из text-чанков
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-chunks", "Заголовок", "Текст", ["tag"],
+        updated_at="2025-01-01T00:00:00Z",
+        title_vector=None,
+        chunks=[
+            {
+                "blogpost_id": "bp-chunks",
+                "chunk_index": 0,
+                "chunk_text": "Чанк 1",
+                "chunk_vector": _OFF_VECTOR,
+            },
+            {
+                "blogpost_id": "bp-chunks",
+                "chunk_index": 1,
+                "chunk_text": "Чанк 2",
+                "chunk_vector": _IDENTITY_VECTOR,
+            },
+        ],
+    )
+    # Документ-пустышка без векторов вообще
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-none", "Другой", "Текст", ["tag"],
+        updated_at="2025-01-02T00:00:00Z",
+        title_vector=None,
+    )
+
+    result = await elastic_service.blogposts.vector_search("запрос")
+    assert len(result) >= 1
+    assert result[0].id == "bp-chunks"
+
+
+# ── слияние title + text ───────────────────────────────────────────────────
+
+
+async def test_vector_search_merges_title_and_text(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """Оба источника (title и text) дают кандидатов; слияние их объединяет."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    # Документ с хорошим заголовком, но плохим текстом
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-good-title", "Хороший заголовок", "Текст", ["tag"],
+        updated_at="2025-01-01T00:00:00Z",
+        title_vector=_IDENTITY_VECTOR,
+        chunks=[
+            {
+                "blogpost_id": "bp-good-title",
+                "chunk_index": 0,
+                "chunk_text": "Чанк",
+                "chunk_vector": _OFF_VECTOR,
+            },
+        ],
+    )
+    # Документ с плохим заголовком, но хорошим текстом
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-good-text", "Другой заголовок", "Текст", ["tag"],
+        updated_at="2025-01-02T00:00:00Z",
+        title_vector=_OFF_VECTOR,
+        chunks=[
+            {
+                "blogpost_id": "bp-good-text",
+                "chunk_index": 0,
+                "chunk_text": "Чанк",
+                "chunk_vector": _IDENTITY_VECTOR,
+            },
+        ],
+    )
+
+    result = await elastic_service.blogposts.vector_search("запрос")
+    ids = {bp.id for bp in result}
+    assert "bp-good-title" in ids
+    assert "bp-good-text" in ids
+
+
+# ── вес title 3x ───────────────────────────────────────────────────────────
+
+
+async def test_vector_search_title_3x_weight(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """При эквивалентных косинусах title имеет в 3 раза больший вес,
+    чем text — документ с совпадением по title должен быть выше."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    # Документ с хорошим title, плохим текстом
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-title", "Заголовок", "Текст", ["tag"],
+        updated_at="2025-01-01T00:00:00Z",
+        title_vector=_IDENTITY_VECTOR,
+        chunks=[
+            {
+                "blogpost_id": "bp-title",
+                "chunk_index": 0,
+                "chunk_text": "Чанк",
+                "chunk_vector": _OFF_VECTOR,
+            },
+        ],
+    )
+    # Документ с плохим title, хорошим текстом
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-text", "Другой", "Текст", ["tag"],
+        updated_at="2025-01-02T00:00:00Z",
+        title_vector=_OFF_VECTOR,
+        chunks=[
+            {
+                "blogpost_id": "bp-text",
+                "chunk_index": 0,
+                "chunk_text": "Чанк",
+                "chunk_vector": _IDENTITY_VECTOR,
+            },
+        ],
+    )
+
+    result = await elastic_service.blogposts.vector_search("запрос")
+    assert len(result) >= 2
+    # bp-title (title=1.0, text~0) vs bp-text (title~0, text=1.0)
+    # fused: 3*1.0 + 0 vs 3*0 + 1.0 → bp-title выше
+    assert result[0].id == "bp-title"
+    assert result[1].id == "bp-text"
+
+
+# ── size ────────────────────────────────────────────────────────────────────
+
+
+async def test_vector_search_respects_size(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """Параметр size ограничивает количество результатов."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    for i in range(10):
+        elastic_operations.blogposts.index_blogpost_with_vectors(
+            f"bp-{i}", f"Post {i}", "Text", ["tag"],
+            updated_at=f"2025-01-{i+1:02d}T00:00:00Z",
+            title_vector=_IDENTITY_VECTOR,
+        )
+
+    result = await elastic_service.blogposts.vector_search("запрос", size=5)
+    assert len(result) == 5
+
+
+async def test_vector_search_default_size_is_20(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """По умолчанию size=20."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    for i in range(25):
+        elastic_operations.blogposts.index_blogpost_with_vectors(
+            f"bp-{i}", f"Post {i}", "Text", ["tag"],
+            updated_at=f"2025-01-{i+1:02d}T00:00:00Z",
+            title_vector=_IDENTITY_VECTOR,
+        )
+
+    result = await elastic_service.blogposts.vector_search("запрос")
+    assert len(result) == 20
+
+
+# ── документы без title_vector ─────────────────────────────────────────────
+
+
+async def test_vector_search_missing_title_vector_does_not_break(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """Документ без title_vector не попадает в title-результаты,
+    но не ломает весь поиск (может попасть из text-чанков)."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    # Документ с title_vector — должен найтись
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-ok", "Хороший", "Текст", ["tag"],
+        updated_at="2025-01-01T00:00:00Z",
+        title_vector=_IDENTITY_VECTOR,
+    )
+    # Документ без title_vector и без чанков — не должен сломать поиск
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-no-vec", "Без вектора", "Текст", ["tag"],
+        updated_at="2025-01-02T00:00:00Z",
+        title_vector=None,
+    )
+
+    result = await elastic_service.blogposts.vector_search("запрос")
+    # bp-ok должен быть в выдаче, bp-no-vec — нет (не имеет векторов)
+    ids = {bp.id for bp in result}
+    assert "bp-ok" in ids
+    assert "bp-no-vec" not in ids

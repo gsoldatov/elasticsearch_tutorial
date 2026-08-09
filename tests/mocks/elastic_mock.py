@@ -46,9 +46,11 @@ class BlogpostsEmbeddingsMock(BlogpostsEmbeddingsBase):
 
     def __init__(self) -> None:
         self.get_embeddings_calls: list[dict] = []
+        self.embed_query_calls: list[dict] = []
         self.raise_on_get_embeddings: Exception | None = None
         self._title_vectors: dict[str, list[float]] = {}
         self._chunk_vectors: dict[str, list[BlogpostTextChunk]] = {}
+        self._query_vector: list[float] | None = None
 
     def _get_ollama_client(self) -> AsyncMock:
         return AsyncMock()
@@ -64,6 +66,20 @@ class BlogpostsEmbeddingsMock(BlogpostsEmbeddingsBase):
             self._title_vectors[blogpost_id] = title_vector
         if chunks is not None:
             self._chunk_vectors[blogpost_id] = chunks
+
+    def set_query_vector(self, vector: list[float]) -> None:
+        """Задать фиксированный вектор, возвращаемый embed_query."""
+        self._query_vector = vector
+
+    async def embed_query(self, text: str) -> list[float]:
+        """Возвращает эмбеддинг запроса: явно заданный через set_query_vector,
+        или случайный вектор размерности 384."""
+        if self.raise_on_get_embeddings is not None:
+            raise self.raise_on_get_embeddings
+        self.embed_query_calls.append({"text": text})
+        if self._query_vector is not None:
+            return self._query_vector
+        return [random.random() for _ in range(384)]
 
     async def get_embeddings(
         self, blogpost_id: str, *,
@@ -105,9 +121,11 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
         self.delete_calls: list[dict] = []
         self.search_calls: list[dict] = []
         self.search_tags_calls: list[dict] = []
+        self.vector_search_calls: list[dict] = []
 
         self._blogposts: dict[str, Blogpost] = {}
         self._id_counter: int = 0
+        self._vector_search_result: list[Blogpost] | None = None
 
         self.raise_on_create: Exception | None = None
         self.raise_on_get: Exception | None = None
@@ -115,6 +133,7 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
         self.raise_on_delete: Exception | None = None
         self.raise_on_search: Exception | None = None
         self.raise_on_search_tags: Exception | None = None
+        self.raise_on_vector_search: Exception | None = None
 
     @property
     def embeddings(self) -> BlogpostsEmbeddingsMock:
@@ -240,6 +259,20 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
             raise NotFoundException("Теги по заданному запросу не найдены")
 
         return sorted(result)
+
+    def set_vector_search_result(self, result: list[Blogpost]) -> None:
+        """Задать результат, возвращаемый vector_search."""
+        self._vector_search_result = result
+
+    async def vector_search(
+        self, query: str, size: int = 20,
+    ) -> list[Blogpost]:
+        if self.raise_on_vector_search is not None:
+            raise self.raise_on_vector_search
+        self.vector_search_calls.append({"query": query, "size": size})
+        if self._vector_search_result is not None:
+            return self._vector_search_result
+        return list(self._blogposts.values())[:size]
 
 
 class ElasticMigrationsMock(ElasticMigrationsBase):

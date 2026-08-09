@@ -138,7 +138,9 @@
     + print current progress in migration and ingestion scripts;
 
     - new endpoints (no min_time/max_time/tags filters):
-        - GET /blogposts/vector_search?q=...;  // ANN + chunk collapse + linear fusion
+        + GET /blogposts/vector_search?q=...:
+            x ANN + chunk collapse + linear fusion;     // ANN is unavailable in v7.17
+            + KNN + chunk collapse (pick best result) + linear fusion with title vector;
         - GET /blogposts/hybrid_search?q=...;  // same + BM25 multi_match   // TODO specify FTS + vector fusion logic
 
     - tests:

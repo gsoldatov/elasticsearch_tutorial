@@ -44,6 +44,28 @@ class BlogpostsEmbeddings(BlogpostsEmbeddingsBase):
             )
         return self._tokenizer
 
+    async def embed_query(self, text: str) -> list[float]:
+        """Получает эмбеддинг для поискового запроса.
+
+        Вызывается при векторном поиске — превращает текст запроса
+        в вектор той же размерности, что и проиндексированные документы.
+        """
+        try:
+            client = self._get_ollama_client()
+            response = await client.embed(
+                model=self._es._config.ollama_model,
+                input=text,
+                keep_alive=self._es._config.ollama_keep_alive,
+            )
+            return list(response.embeddings[0])
+        except (
+            httpx.ConnectError,
+            httpx.TimeoutException,
+            ResponseError,
+            ConnectionError,
+        ) as e:
+            raise EmbeddingsNetworkError(str(e)) from e
+
     async def get_embeddings(
         self, blogpost_id: str, *,
         title: str | None = None, text: str | None = None,

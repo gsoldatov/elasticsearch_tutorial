@@ -39,6 +39,10 @@ class BlogpostsEmbeddingsBase(ABC):
         """Получает эмбеддинги для заголовка и текста блогпоста."""
 
     @abstractmethod
+    def embed_query(self, text: str) -> Awaitable[list[float]]:
+        """Получает эмбеддинг для поискового запроса."""
+
+    @abstractmethod
     def _get_ollama_client(self) -> AsyncClient:
         """Ленивое создание async-клиента Ollama."""
 
@@ -87,6 +91,13 @@ class ElasticBlogpostsServiceBase(ABC):
     @abstractmethod
     async def search_tags(self, q: str) -> list[str]:
         """Нечёткий префиксный поиск по тегам. Возвращает уникальные теги."""
+
+    @abstractmethod
+    def vector_search(
+        self, query: str, size: int = 20,
+    ) -> Awaitable[list[Blogpost]]:
+        """Векторный поиск блогпостов: KNN по title_vector и chunk_vector
+        с линейным слиянием (title 3x вес)."""
 
 
 class ElasticServiceBase(ABC):
