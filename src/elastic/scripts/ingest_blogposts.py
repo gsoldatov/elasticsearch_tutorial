@@ -12,6 +12,8 @@ from src.config import get_config
 from src.elastic import ElasticService
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_GEN_BATCH_SIZE = 1000
+_SEED_STEP = 1000
 
 
 async def ingest_blogposts(
@@ -32,11 +34,25 @@ async def ingest_blogposts(
 
     Возвращает количество загруженных блогпостов.
     """
-    blogposts = generate_blogposts(
-        number=number,
-        seed=seed,
-        starting_id=starting_id,
-    )
+    # Генерация батчами с прогрессом
+    blogposts = []
+    width = len(str(number))
+    for offset in range(0, number, _GEN_BATCH_SIZE):
+        batch_n = min(_GEN_BATCH_SIZE, number - offset)
+        batch_seed = seed + (offset // _GEN_BATCH_SIZE) * _SEED_STEP
+        batch_starting_id = starting_id + offset
+        batch = generate_blogposts(
+            number=batch_n,
+            seed=batch_seed,
+            starting_id=batch_starting_id,
+        )
+        blogposts.extend(batch)
+        print(
+            f"\rСгенерировано блогпостов (без эмбеддингов): {len(blogposts):>{width}d} / {number}",
+            end="",
+            flush=True,
+        )
+    print()
 
     if write_file_path is not None:
         target = PROJECT_ROOT / write_file_path
@@ -53,16 +69,18 @@ async def ingest_blogposts(
     try:
         count = 0
         batch: list = []
-        for bp in blogposts:
+        for i, bp in enumerate(blogposts, start=1):
             batch.append(bp)
-            if len(batch) >= 1000:
+            if len(batch) >= 1 or i == number:
                 await es.blogposts.index_blogposts(batch)
                 count += len(batch)
+                print(
+                    f"\rЗагружено блогпостов: {count:>{width}d} / {number}",
+                    end="",
+                    flush=True,
+                )
                 batch = []
-
-        if batch:
-            await es.blogposts.index_blogposts(batch)
-            count += len(batch)
+        print()
 
         return count
     finally:
@@ -82,8 +100,8 @@ async def _main() -> None:
     parser.add_argument(
         "--number",
         type=int,
-        default=1500,
-        help="Количество генерируемых блогпостов (по умолчанию: 1500)",
+        default=20,
+        help="Количество генерируемых блогпостов (по умолчанию: 20)",
     )
     parser.add_argument(
         "--seed",
@@ -115,7 +133,6 @@ async def _main() -> None:
     )
     if args.write_file_path:
         print(f"Данные сохранены в {args.write_file_path}")
-    print(f"Загружено блогпостов в ES: {count}")
 
 
 if __name__ == "__main__":

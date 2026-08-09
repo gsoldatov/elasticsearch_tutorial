@@ -132,10 +132,10 @@
             + delete:
                 + delete from both indices;
 
-    - ingest_blogposts.py:
-        - check if reducing default post count and text size is needed;
+    + ingest_blogposts.py:
+        + check if reducing default post count and text size is needed;
     
-    - print current progress in migration and ingestion scripts;
+    + print current progress in migration and ingestion scripts;
 
     - new endpoints (no min_time/max_time/tags filters):
         - GET /blogposts/vector_search?q=...;  // ANN + chunk collapse + linear fusion

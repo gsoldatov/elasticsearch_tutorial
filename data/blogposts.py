@@ -6,7 +6,7 @@ from src.models.blogpost import Blogpost
 
 
 def generate_blogposts(
-    number: int = 1500,
+    number: int = 20,
     seed: int = 42,
     starting_id: int = 1,
 ) -> list[Blogpost]:
@@ -30,7 +30,7 @@ def generate_blogposts(
             Blogpost(
                 id=str(starting_id + i),
                 title=fake.sentence(nb_words=6)[:256],
-                text=fake.text(max_nb_chars=8192),
+                text=fake.text(max_nb_chars=1024),
                 tags=[fake.word() for _ in range(fake.random_int(min=0, max=10))],
                 updated_at=fake.date_time_between(
                     start_date=start_date,
