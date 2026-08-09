@@ -12,6 +12,8 @@ from src.config import get_config
 from src.elastic import ElasticService
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_GEN_BATCH_SIZE = 1000
+_SEED_STEP = 1000
 
 
 async def ingest_sales(
@@ -30,7 +32,20 @@ async def ingest_sales(
 
     Возвращает количество загруженных продаж.
     """
-    sales = generate_sales(number=number, seed=seed)
+    # Генерация батчами с прогрессом
+    sales = []
+    width = len(str(number))
+    for offset in range(0, number, _GEN_BATCH_SIZE):
+        batch_n = min(_GEN_BATCH_SIZE, number - offset)
+        batch_seed = seed + (offset // _GEN_BATCH_SIZE) * _SEED_STEP
+        batch = generate_sales(number=batch_n, seed=batch_seed)
+        sales.extend(batch)
+        print(
+            f"\rСгенерировано продаж: {len(sales):>{width}d} / {number}",
+            end="",
+            flush=True,
+        )
+    print()
 
     if write_file_path is not None:
         target = PROJECT_ROOT / write_file_path
@@ -48,16 +63,18 @@ async def ingest_sales(
     try:
         count = 0
         batch: list = []
-        for sale in sales:
+        for i, sale in enumerate(sales, start=1):
             batch.append(sale)
-            if len(batch) >= 1000:
+            if len(batch) >= 1000 or i == number:
                 await es.sales.index_sales(batch)
                 count += len(batch)
+                print(
+                    f"\rЗагружено продаж: {count:>{width}d} / {number}",
+                    end="",
+                    flush=True,
+                )
                 batch = []
-
-        if batch:
-            await es.sales.index_sales(batch)
-            count += len(batch)
+        print()
 
         return count
     finally:
@@ -103,7 +120,6 @@ async def _main() -> None:
     )
     if args.write_file_path:
         print(f"Данные сохранены в {args.write_file_path}")
-    print(f"Загружено продаж в ES: {count}")
 
 
 if __name__ == "__main__":
