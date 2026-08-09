@@ -17,11 +17,10 @@ async def migrate(config: Config, current: str, to: str) -> None:
         # Определяем направление по числовым индексам ревизий
         current_idx = es.migrations._resolve_revision(current)
         to_idx = es.migrations._resolve_revision(to)
-        if to_idx > current_idx:
+        if to_idx >= current_idx:
             await es.migrations.upgrade(current=current, to=to)
-        elif to_idx < current_idx:
+        else:
             await es.migrations.downgrade(current=current, to=to)
-        # иначе: no-op
     finally:
         await es.close()
 
@@ -52,7 +51,6 @@ async def _main() -> None:
 
     config = get_config(args.env_file)
     await migrate(config, current=args.current, to=args.to)
-    print(f"  ✓ миграции применены: {args.current} → {args.to}")
 
 
 if __name__ == "__main__":

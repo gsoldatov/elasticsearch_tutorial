@@ -39,19 +39,27 @@ class ElasticMigrations(ElasticMigrationsBase):
         """Применяет ревизии от current до to (не включительно → включительно)."""
         current_idx = self._resolve_revision(current)
         to_idx = self._resolve_revision(to)
+        print(f"Применение миграций: {current} → {to}")
         if current_idx >= to_idx:
+            print("  • миграции не требуются (неверный порядок ревизий)")
             return
         for i in range(current_idx, to_idx):
-            await self._revisions[i].upgrade()
+            revision = self._revisions[i]
+            await revision.upgrade()
+            print(f"  ✓ ревизия {i + 1} ({type(revision).__name__})")
 
     async def downgrade(self, current: str, to: str) -> None:
         """Откатывает ревизии от current до to в обратном порядке."""
         current_idx = self._resolve_revision(current)
         to_idx = self._resolve_revision(to)
+        print(f"Откат миграций: {current} → {to}")
         if current_idx <= to_idx:
+            print("  • миграции не требуются (неверный порядок ревизий)")
             return
         for i in range(current_idx - 1, to_idx - 1, -1):
-            await self._revisions[i].downgrade()
+            revision = self._revisions[i]
+            await revision.downgrade()
+            print(f"  ✓ ревизия {i + 1} ({type(revision).__name__})")
 
     async def delete_indices(self) -> None:
         """Удаляет все индексы и связанные pipelines."""
