@@ -16,7 +16,7 @@ from src.db.models import Documents
 from src.models import DocumentCreate
 
 
-async def ingest_data(config, csv_path: Path) -> int:
+async def ingest_documents(config, csv_path: Path) -> int:
     """Читает CSV, валидирует строки и вставляет их в БД.
 
     Возвращает количество загруженных документов.
@@ -69,7 +69,7 @@ async def _main() -> None:
     if not csv_path.is_absolute():
         csv_path = Path.cwd() / csv_path
 
-    count = await ingest_data(config, csv_path)
+    count = await ingest_documents(config, csv_path)
     print(f"Загружено документов: {count}")
 
 

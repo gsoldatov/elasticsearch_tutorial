@@ -82,7 +82,7 @@ uv run src/db/scripts/app_db.py
 uv run alembic -c src/db/alembic/alembic.ini upgrade head
 
 # Ingest test data
-uv run src/db/scripts/ingest_data.py
+uv run src/db/scripts/ingest_documents.py
 
 # Drop and create again app user & DB
 uv run src/db/scripts/app_db.py --delete-existing
@@ -122,7 +122,7 @@ docker compose exec api uv run src/db/scripts/app_db.py
 docker compose exec api uv run alembic -c src/db/alembic/alembic.ini upgrade head
 
 # Ingest test data
-docker compose exec api uv run src/db/scripts/ingest_data.py
+docker compose exec api uv run src/db/scripts/ingest_documents.py
 
 # Drop and create again app user & DB
 docker compose exec api uv run src/db/scripts/app_db.py --delete-existing
