@@ -97,6 +97,12 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
         chunks_index = self._es._config.es_blogposts_text_chunks_index_name
         body = data.model_dump(mode="json", exclude_none=True)
         doc_id = body.pop("id", None)
+
+        # Если updated_at не передан — выставляем сейчас,
+        # чтобы не делать лишний get после индексации
+        if "updated_at" not in body:
+            body["updated_at"] = datetime.now(timezone.utc)
+
         args: dict = {"index": index, "body": body}
         if doc_id is not None:
             args["id"] = doc_id
@@ -141,8 +147,7 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
                 refresh=self._es._refresh,
             )
 
-        created = await self.client.get(index=index, id=created_id)
-        return Blogpost(id=created["_id"], **created["_source"])
+        return Blogpost(id=created_id, **body)
 
     @internal_validation
     async def get(self, blogpost_id: str) -> Blogpost:
@@ -183,7 +188,6 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
                 index=index,
                 id=blogpost_id,
                 doc=body,
-                retry_on_conflict=2,
                 source=True,
             )
         except ConflictError:
