@@ -36,6 +36,78 @@ async def mock_blogposts_embeddings(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# index_blogposts
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+async def test_index_blogposts_bulk(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+    data_generator,
+):
+    """Массовая индексация блогпостов: title_vector добавляется в _source,
+    чанки индексируются в отдельный индекс."""
+    mock_vector = [0.1] * 384
+    mock_chunks = [
+        BlogpostTextChunk(
+            blogpost_id="5",
+            chunk_index=0,
+            chunk_text="Text 5",
+            chunk_vector=mock_vector,
+        ),
+        BlogpostTextChunk(
+            blogpost_id="5",
+            chunk_index=1,
+            chunk_text="Text 5 продолжение",
+            chunk_vector=mock_vector,
+        ),
+    ]
+
+    # По умолчанию возвращаем вектор без чанков; для "5" — с чанками
+    mock_blogposts_embeddings.set_result(
+        "5", title_vector=mock_vector, chunks=mock_chunks,
+    )
+    for i in range(1, 11):
+        if i != 5:
+            mock_blogposts_embeddings.set_result(
+                str(i), title_vector=mock_vector,
+            )
+
+    blogposts = [
+        data_generator.blogposts.blogpost(
+            id=str(i),
+            title=f"Post {i}",
+            text=f"Text {i}",
+            tags=["bulk"],
+            updated_at=datetime(2025, 1, i, tzinfo=timezone.utc),
+        )
+        for i in range(1, 11)
+    ]
+    await elastic_service.blogposts.index_blogposts(blogposts)
+
+    # Документы в индексе блогпостов
+    assert elastic_operations.blogposts.count() == 10
+    bp = await elastic_service.blogposts.get("5")
+    assert bp.title == "Post 5"
+
+    # title_vector присутствует в _source
+    raw = elastic_operations.blogposts.get_blogpost("5")
+    assert raw is not None
+    assert "title_vector" in raw
+    assert len(raw["title_vector"]) == 384
+
+    # Чанки в индексе чанков
+    assert elastic_operations.blogposts_text_chunks.count() == 2
+
+    # Проверка содержимого чанков
+    chunks = elastic_operations.blogposts_text_chunks.get_all()
+    assert len(chunks) == 2
+    chunk_ids = {c["blogpost_id"] for c in chunks}
+    assert chunk_ids == {"5"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # create
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -58,6 +130,24 @@ async def test_create_duplicate_id_raises_update_conflict(
     # Проверяем, что первый документ не перезаписан
     bp = await elastic_service.blogposts.get("dup")
     assert bp.title == "First"
+
+
+async def test_create_embeddings_error_propagates(
+    elastic_service: ElasticService,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+    data_generator,
+):
+    """EmbeddingsNetworkError при create пробрасывается."""
+    mock_blogposts_embeddings.raise_on_get_embeddings = EmbeddingsNetworkError(
+        "ollama down"
+    )
+
+    with pytest.raises(EmbeddingsNetworkError, match="ollama down"):
+        await elastic_service.blogposts.create(
+            data_generator.blogposts.blogpost_create(
+                id="bp-err", title="T", text="X", tags=[],
+            ),
+        )
 
 
 async def test_create_with_updated_at_uses_provided_value(
@@ -160,22 +250,240 @@ async def test_create_stores_text_chunks(
     assert chunk_ids == {"bp-chunks"}
 
 
-async def test_create_embeddings_error_propagates(
+# ══════════════════════════════════════════════════════════════════════════════
+# get
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+async def test_get_nonexistent_blogpost_raises_not_found(
     elastic_service: ElasticService,
+):
+    """Получение несуществующего блогпоста — NotFoundException."""
+    with pytest.raises(NotFoundException, match="не найден"):
+        await elastic_service.blogposts.get("nonexistent")
+
+
+async def test_get_existing_blogpost(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+):
+    """Получение существующего блогпоста."""
+    elastic_operations.blogposts.index_blogpost(
+        "bp-1", "Заголовок", "Текст", ["a", "b"],
+        updated_at="2025-01-01T00:00:00Z",
+    )
+
+    bp = await elastic_service.blogposts.get("bp-1")
+    assert bp.id == "bp-1"
+    assert bp.title == "Заголовок"
+    assert bp.text == "Текст"
+    assert bp.tags == ["a", "b"]
+    assert bp.updated_at == datetime(2025, 1, 1, tzinfo=timezone.utc)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# update
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+async def test_update_nonexistent_blogpost_raises_not_found(
+    elastic_service: ElasticService,
+    data_generator,
+):
+    """Обновление несуществующего блогпоста — NotFoundException."""
+    with pytest.raises(NotFoundException, match="не найден"):
+        await elastic_service.blogposts.update(
+            "nonexistent", data_generator.blogposts.blogpost_update(),
+        )
+
+
+async def test_update_embeddings_error_propagates(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
     mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
     data_generator,
 ):
-    """EmbeddingsNetworkError при create пробрасывается."""
+    """EmbeddingsNetworkError при update пробрасывается,
+    документ остаётся без изменений."""
+    elastic_operations.blogposts.index_blogpost(
+        "bp-upd-err", "Old Title", "Old Text", [],
+        updated_at="2025-01-01T00:00:00Z",
+    )
     mock_blogposts_embeddings.raise_on_get_embeddings = EmbeddingsNetworkError(
         "ollama down"
     )
 
     with pytest.raises(EmbeddingsNetworkError, match="ollama down"):
-        await elastic_service.blogposts.create(
-            data_generator.blogposts.blogpost_create(
-                id="bp-err", title="T", text="X", tags=[],
-            ),
+        await elastic_service.blogposts.update(
+            "bp-upd-err",
+            data_generator.blogposts.blogpost_update(title="New Title"),
         )
+
+    # Документ не изменился
+    bp = await elastic_service.blogposts.get("bp-upd-err")
+    assert bp.title == "Old Title"
+    assert bp.text == "Old Text"
+
+
+async def test_update_updated_at_is_set_to_now(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    data_generator,
+):
+    """updated_at обновляется на текущее время."""
+    elastic_operations.blogposts.index_blogpost(
+        "bp-1", "T", "X", [],
+        updated_at="2025-01-01T00:00:00Z",
+    )
+
+    bp = await elastic_service.blogposts.update(
+        "bp-1", data_generator.blogposts.blogpost_update(),
+    )
+
+    assert bp.updated_at is not None
+    assert bp.updated_at != datetime(2025, 1, 1, tzinfo=timezone.utc)
+
+
+async def test_update_preserves_updated_at_when_provided(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    data_generator,
+):
+    """Если передан updated_at — используется переданное значение."""
+    elastic_operations.blogposts.index_blogpost(
+        "bp-1", "T", "X", [],
+        updated_at="2025-01-01T00:00:00Z",
+    )
+
+    now = datetime(2025, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+    bp = await elastic_service.blogposts.update(
+        "bp-1",
+        data_generator.blogposts.blogpost_update(updated_at=now),
+    )
+
+    assert bp.updated_at == now
+
+
+async def test_update_tags_does_not_call_embeddings(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+    data_generator,
+):
+    """PATCH только tags не вызывает get_embeddings."""
+    elastic_operations.blogposts.index_blogpost(
+        "bp-upd-tags", "Title", "Text", ["old"],
+        updated_at="2025-01-01T00:00:00Z",
+    )
+
+    bp = await elastic_service.blogposts.update(
+        "bp-upd-tags",
+        data_generator.blogposts.blogpost_update(title=None, tags=["new"]),
+    )
+
+    assert bp.tags == ["new"]
+    assert len(mock_blogposts_embeddings.get_embeddings_calls) == 0
+
+
+async def test_update_existing_blogpost(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    data_generator,
+):
+    """Частичное обновление блогпоста."""
+    elastic_operations.blogposts.index_blogpost(
+        "bp-1", "Old Title", "Old Text", ["old"],
+        updated_at="2025-01-01T00:00:00Z",
+    )
+
+    bp = await elastic_service.blogposts.update(
+        "bp-1",
+        data_generator.blogposts.blogpost_update(title="New Title", tags=["new"]),
+    )
+
+    assert bp.title == "New Title"
+    assert bp.text == "Old Text"
+    assert bp.tags == ["new"]
+    assert bp.updated_at > datetime(2025, 1, 1, tzinfo=timezone.utc)
+
+
+async def test_update_title_recomputes_vector(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+    data_generator,
+):
+    """PATCH title обновляет title_vector в документе."""
+    old_vector = [0.1] * 384
+    new_vector = [0.9] * 384
+    mock_blogposts_embeddings.set_result("bp-upd-title", title_vector=old_vector)
+
+    # Создаём блогпост с начальным вектором
+    await elastic_service.blogposts.create(
+        data_generator.blogposts.blogpost_create(
+            id="bp-upd-title", title="Old Title", text="Text", tags=[],
+        ),
+    )
+
+    # Обновляем title — мок вернёт новый вектор
+    mock_blogposts_embeddings.set_result("bp-upd-title", title_vector=new_vector)
+
+    bp = await elastic_service.blogposts.update(
+        "bp-upd-title",
+        data_generator.blogposts.blogpost_update(title="New Title"),
+    )
+
+    assert bp.title == "New Title"
+    doc = elastic_operations.blogposts.get_blogpost("bp-upd-title")
+    assert doc is not None
+    assert doc["title_vector"] == new_vector
+
+
+async def test_update_text_replaces_chunks(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+    data_generator,
+):
+    """PATCH text заменяет старые чанки на новые."""
+    old_chunks = [
+        BlogpostTextChunk(
+            blogpost_id="bp-upd-text", chunk_index=0,
+            chunk_text="Old chunk", chunk_vector=[0.1] * 384,
+        ),
+    ]
+    new_chunks = [
+        BlogpostTextChunk(
+            blogpost_id="bp-upd-text", chunk_index=0,
+            chunk_text="New chunk A", chunk_vector=[0.9] * 384,
+        ),
+        BlogpostTextChunk(
+            blogpost_id="bp-upd-text", chunk_index=1,
+            chunk_text="New chunk B", chunk_vector=[0.9] * 384,
+        ),
+    ]
+    mock_blogposts_embeddings.set_result("bp-upd-text", chunks=old_chunks)
+
+    # Создаём блогпост с начальными чанками
+    await elastic_service.blogposts.create(
+        data_generator.blogposts.blogpost_create(
+            id="bp-upd-text", title="T", text="Old text", tags=[],
+        ),
+    )
+    assert elastic_operations.blogposts_text_chunks.count() == 1
+
+    # Обновляем text — мок вернёт новые чанки
+    mock_blogposts_embeddings.set_result("bp-upd-text", chunks=new_chunks)
+
+    bp = await elastic_service.blogposts.update(
+        "bp-upd-text",
+        data_generator.blogposts.blogpost_update(text="New text"),
+    )
+
+    assert bp.text == "New text"
+    chunks = elastic_operations.blogposts_text_chunks.get_all()
+    assert len(chunks) == 2
+    assert {c["chunk_text"] for c in chunks} == {"New chunk A", "New chunk B"}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -238,109 +546,6 @@ async def test_delete_clears_text_chunks(
 
     assert elastic_operations.blogposts.count() == 0
     assert elastic_operations.blogposts_text_chunks.count() == 0
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# get
-# ══════════════════════════════════════════════════════════════════════════════
-
-
-async def test_get_nonexistent_blogpost_raises_not_found(
-    elastic_service: ElasticService,
-):
-    """Получение несуществующего блогпоста — NotFoundException."""
-    with pytest.raises(NotFoundException, match="не найден"):
-        await elastic_service.blogposts.get("nonexistent")
-
-
-async def test_get_existing_blogpost(
-    elastic_service: ElasticService,
-    elastic_operations: ElasticOperations,
-):
-    """Получение существующего блогпоста."""
-    elastic_operations.blogposts.index_blogpost(
-        "bp-1", "Заголовок", "Текст", ["a", "b"],
-        updated_at="2025-01-01T00:00:00Z",
-    )
-
-    bp = await elastic_service.blogposts.get("bp-1")
-    assert bp.id == "bp-1"
-    assert bp.title == "Заголовок"
-    assert bp.text == "Текст"
-    assert bp.tags == ["a", "b"]
-    assert bp.updated_at == datetime(2025, 1, 1, tzinfo=timezone.utc)
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# index_blogposts
-# ══════════════════════════════════════════════════════════════════════════════
-
-
-async def test_index_blogposts_bulk(
-    elastic_service: ElasticService,
-    elastic_operations: ElasticOperations,
-    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
-    data_generator,
-):
-    """Массовая индексация блогпостов: title_vector добавляется в _source,
-    чанки индексируются в отдельный индекс."""
-    mock_vector = [0.1] * 384
-    mock_chunks = [
-        BlogpostTextChunk(
-            blogpost_id="5",
-            chunk_index=0,
-            chunk_text="Text 5",
-            chunk_vector=mock_vector,
-        ),
-        BlogpostTextChunk(
-            blogpost_id="5",
-            chunk_index=1,
-            chunk_text="Text 5 продолжение",
-            chunk_vector=mock_vector,
-        ),
-    ]
-
-    # По умолчанию возвращаем вектор без чанков; для "5" — с чанками
-    mock_blogposts_embeddings.set_result(
-        "5", title_vector=mock_vector, chunks=mock_chunks,
-    )
-    for i in range(1, 11):
-        if i != 5:
-            mock_blogposts_embeddings.set_result(
-                str(i), title_vector=mock_vector,
-            )
-
-    blogposts = [
-        data_generator.blogposts.blogpost(
-            id=str(i),
-            title=f"Post {i}",
-            text=f"Text {i}",
-            tags=["bulk"],
-            updated_at=datetime(2025, 1, i, tzinfo=timezone.utc),
-        )
-        for i in range(1, 11)
-    ]
-    await elastic_service.blogposts.index_blogposts(blogposts)
-
-    # Документы в индексе блогпостов
-    assert elastic_operations.blogposts.count() == 10
-    bp = await elastic_service.blogposts.get("5")
-    assert bp.title == "Post 5"
-
-    # title_vector присутствует в _source
-    raw = elastic_operations.blogposts.get_blogpost("5")
-    assert raw is not None
-    assert "title_vector" in raw
-    assert len(raw["title_vector"]) == 384
-
-    # Чанки в индексе чанков
-    assert elastic_operations.blogposts_text_chunks.count() == 2
-
-    # Проверка содержимого чанков
-    chunks = elastic_operations.blogposts_text_chunks.get_all()
-    assert len(chunks) == 2
-    chunk_ids = {c["blogpost_id"] for c in chunks}
-    assert chunk_ids == {"5"}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -617,6 +822,21 @@ async def test_search_tags_empty_index_returns_not_found(
         await elastic_service.blogposts.search_tags("python")
 
 
+async def test_search_tags_no_match_returns_not_found(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+):
+    """Не-префиксный запрос возвращает 404."""
+    elastic_operations.blogposts.index_blogpost(
+        "bp-1", "T", "X", ["python"],
+        updated_at="2025-01-01T00:00:00Z",
+    )
+
+    # "qy" не является префиксом "python"
+    with pytest.raises(NotFoundException, match="не найдены"):
+        await elastic_service.blogposts.search_tags("qy")
+
+
 # ── базовый поиск ──────────────────────────────────────────────────────────
 
 
@@ -666,21 +886,6 @@ async def test_search_tags_normalizes_query(
     # "machine learning" → "machine_learning"
     result = await elastic_service.blogposts.search_tags("machine learning!?.")
     assert "machine_learning" in result
-
-
-async def test_search_tags_no_match_returns_not_found(
-    elastic_service: ElasticService,
-    elastic_operations: ElasticOperations,
-):
-    """Не-префиксный запрос возвращает 404."""
-    elastic_operations.blogposts.index_blogpost(
-        "bp-1", "T", "X", ["python"],
-        updated_at="2025-01-01T00:00:00Z",
-    )
-
-    # "qy" не является префиксом "python"
-    with pytest.raises(NotFoundException, match="не найдены"):
-        await elastic_service.blogposts.search_tags("qy")
 
 
 async def test_search_tags_returns_unique_sorted(
@@ -757,208 +962,3 @@ async def test_search_tags_fewer_than_10(
     result = await elastic_service.blogposts.search_tags("py")
     assert len(result) == 5
     assert result == sorted(py_tags)
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# update
-# ══════════════════════════════════════════════════════════════════════════════
-
-
-async def test_update_nonexistent_blogpost_raises_not_found(
-    elastic_service: ElasticService,
-    data_generator,
-):
-    """Обновление несуществующего блогпоста — NotFoundException."""
-    with pytest.raises(NotFoundException, match="не найден"):
-        await elastic_service.blogposts.update(
-            "nonexistent", data_generator.blogposts.blogpost_update(),
-        )
-
-
-async def test_update_updated_at_is_set_to_now(
-    elastic_service: ElasticService,
-    elastic_operations: ElasticOperations,
-    data_generator,
-):
-    """updated_at обновляется на текущее время."""
-    elastic_operations.blogposts.index_blogpost(
-        "bp-1", "T", "X", [],
-        updated_at="2025-01-01T00:00:00Z",
-    )
-
-    bp = await elastic_service.blogposts.update(
-        "bp-1", data_generator.blogposts.blogpost_update(),
-    )
-
-    assert bp.updated_at is not None
-    assert bp.updated_at != datetime(2025, 1, 1, tzinfo=timezone.utc)
-
-
-async def test_update_preserves_updated_at_when_provided(
-    elastic_service: ElasticService,
-    elastic_operations: ElasticOperations,
-    data_generator,
-):
-    """Если передан updated_at — используется переданное значение."""
-    elastic_operations.blogposts.index_blogpost(
-        "bp-1", "T", "X", [],
-        updated_at="2025-01-01T00:00:00Z",
-    )
-
-    now = datetime(2025, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
-    bp = await elastic_service.blogposts.update(
-        "bp-1",
-        data_generator.blogposts.blogpost_update(updated_at=now),
-    )
-
-    assert bp.updated_at == now
-
-
-async def test_update_existing_blogpost(
-    elastic_service: ElasticService,
-    elastic_operations: ElasticOperations,
-    data_generator,
-):
-    """Частичное обновление блогпоста."""
-    elastic_operations.blogposts.index_blogpost(
-        "bp-1", "Old Title", "Old Text", ["old"],
-        updated_at="2025-01-01T00:00:00Z",
-    )
-
-    bp = await elastic_service.blogposts.update(
-        "bp-1",
-        data_generator.blogposts.blogpost_update(title="New Title", tags=["new"]),
-    )
-
-    assert bp.title == "New Title"
-    assert bp.text == "Old Text"
-    assert bp.tags == ["new"]
-    assert bp.updated_at > datetime(2025, 1, 1, tzinfo=timezone.utc)
-
-
-async def test_update_title_recomputes_vector(
-    elastic_service: ElasticService,
-    elastic_operations: ElasticOperations,
-    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
-    data_generator,
-):
-    """PATCH title обновляет title_vector в документе."""
-    old_vector = [0.1] * 384
-    new_vector = [0.9] * 384
-    mock_blogposts_embeddings.set_result("bp-upd-title", title_vector=old_vector)
-
-    # Создаём блогпост с начальным вектором
-    await elastic_service.blogposts.create(
-        data_generator.blogposts.blogpost_create(
-            id="bp-upd-title", title="Old Title", text="Text", tags=[],
-        ),
-    )
-
-    # Обновляем title — мок вернёт новый вектор
-    mock_blogposts_embeddings.set_result("bp-upd-title", title_vector=new_vector)
-
-    bp = await elastic_service.blogposts.update(
-        "bp-upd-title",
-        data_generator.blogposts.blogpost_update(title="New Title"),
-    )
-
-    assert bp.title == "New Title"
-    doc = elastic_operations.blogposts.get_blogpost("bp-upd-title")
-    assert doc is not None
-    assert doc["title_vector"] == new_vector
-
-
-async def test_update_text_replaces_chunks(
-    elastic_service: ElasticService,
-    elastic_operations: ElasticOperations,
-    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
-    data_generator,
-):
-    """PATCH text заменяет старые чанки на новые."""
-    old_chunks = [
-        BlogpostTextChunk(
-            blogpost_id="bp-upd-text", chunk_index=0,
-            chunk_text="Old chunk", chunk_vector=[0.1] * 384,
-        ),
-    ]
-    new_chunks = [
-        BlogpostTextChunk(
-            blogpost_id="bp-upd-text", chunk_index=0,
-            chunk_text="New chunk A", chunk_vector=[0.9] * 384,
-        ),
-        BlogpostTextChunk(
-            blogpost_id="bp-upd-text", chunk_index=1,
-            chunk_text="New chunk B", chunk_vector=[0.9] * 384,
-        ),
-    ]
-    mock_blogposts_embeddings.set_result("bp-upd-text", chunks=old_chunks)
-
-    # Создаём блогпост с начальными чанками
-    await elastic_service.blogposts.create(
-        data_generator.blogposts.blogpost_create(
-            id="bp-upd-text", title="T", text="Old text", tags=[],
-        ),
-    )
-    assert elastic_operations.blogposts_text_chunks.count() == 1
-
-    # Обновляем text — мок вернёт новые чанки
-    mock_blogposts_embeddings.set_result("bp-upd-text", chunks=new_chunks)
-
-    bp = await elastic_service.blogposts.update(
-        "bp-upd-text",
-        data_generator.blogposts.blogpost_update(text="New text"),
-    )
-
-    assert bp.text == "New text"
-    chunks = elastic_operations.blogposts_text_chunks.get_all()
-    assert len(chunks) == 2
-    assert {c["chunk_text"] for c in chunks} == {"New chunk A", "New chunk B"}
-
-
-async def test_update_tags_does_not_call_embeddings(
-    elastic_service: ElasticService,
-    elastic_operations: ElasticOperations,
-    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
-    data_generator,
-):
-    """PATCH только tags не вызывает get_embeddings."""
-    elastic_operations.blogposts.index_blogpost(
-        "bp-upd-tags", "Title", "Text", ["old"],
-        updated_at="2025-01-01T00:00:00Z",
-    )
-
-    bp = await elastic_service.blogposts.update(
-        "bp-upd-tags",
-        data_generator.blogposts.blogpost_update(title=None, tags=["new"]),
-    )
-
-    assert bp.tags == ["new"]
-    assert len(mock_blogposts_embeddings.get_embeddings_calls) == 0
-
-
-async def test_update_embeddings_error_propagates(
-    elastic_service: ElasticService,
-    elastic_operations: ElasticOperations,
-    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
-    data_generator,
-):
-    """EmbeddingsNetworkError при update пробрасывается,
-    документ остаётся без изменений."""
-    elastic_operations.blogposts.index_blogpost(
-        "bp-upd-err", "Old Title", "Old Text", [],
-        updated_at="2025-01-01T00:00:00Z",
-    )
-    mock_blogposts_embeddings.raise_on_get_embeddings = EmbeddingsNetworkError(
-        "ollama down"
-    )
-
-    with pytest.raises(EmbeddingsNetworkError, match="ollama down"):
-        await elastic_service.blogposts.update(
-            "bp-upd-err",
-            data_generator.blogposts.blogpost_update(title="New Title"),
-        )
-
-    # Документ не изменился
-    bp = await elastic_service.blogposts.get("bp-upd-err")
-    assert bp.title == "Old Title"
-    assert bp.text == "Old Text"
