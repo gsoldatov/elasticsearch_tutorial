@@ -67,8 +67,21 @@ Stack used:
 - tests:
     - write test cases as functions;
     - test case order (where applicable): errors (validation, network, etc.) -> business logic errors -> edge cases -> happy path;
-    - test cases should use data generator classes to create test data, where needed;
     - assert errors are in Russian, rest can be in English;
+    - mocks and fixtures usage:
+        - Elastic:
+            - methods of service classes should have proper functional test cases, that interact with temporary ES indices;
+            - don't use a test PostgreSQL db, unless necessary;
+            - mock interaction with Ollama (see `mock_blogposts_embeddings`), except for cases that directly test its usage;
+        - routes:
+            - use mock for Elastic service classes;
+            - may use temporary PostgreSQL databases, if route handlers are expected to interact with it (otherwise, temp DB should not be created);
+    - utility classes:
+        - data generator classes: preferred way to create data inside test cases;
+        - db_operaitons: methods for interacting with test PostgreSQL database in test cases;
+        - elastic_operaitons: methods for interacting with test ES indices in test cases;
+        - use and expand utility classes as needed;
+
 
 
 # Commands
