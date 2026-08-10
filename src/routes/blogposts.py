@@ -16,28 +16,15 @@ from src.models import (
 
 router = APIRouter(tags=["blogposts"])
 
+
+# ── Full-text search ────────────────────────────────────────────────────────────
+
+
 TagsQuery = Annotated[
     str | None,
     AfterValidator(validate_tags_param),
     Query(description="Теги через запятую, до 10"),
 ]
-
-
-@router.post(
-    "/",
-    status_code=201,
-    response_model=Blogpost,
-    responses={
-        409: {
-            "description": "Блогпост с таким id уже существует",
-            "model": ErrorResponse,
-        },
-    },
-)
-async def create_blogpost(request: Request, body: BlogpostCreate) -> Blogpost:
-    """Создаёт блогпост в Elasticsearch."""
-    elastic_service = cast(ElasticServiceBase, request.app.state.elastic_service)
-    return await elastic_service.blogposts.create(body)
 
 
 @router.get(
@@ -96,6 +83,9 @@ async def search_tags(
     return await elastic_service.blogposts.search_tags(q)
 
 
+# ── Vector search ────────────────────────────────────────────────────────────
+
+
 @router.get(
     "/vector_search",
     response_model=list[Blogpost],
@@ -108,6 +98,26 @@ async def vector_search_blogposts(
     с линейным слиянием (title имеет вес 3x против text)."""
     elastic_service = cast(ElasticServiceBase, request.app.state.elastic_service)
     return await elastic_service.blogposts.vector_search(q)
+
+
+# ── CRUD ────────────────────────────────────────────────────────────
+
+
+@router.post(
+    "/",
+    status_code=201,
+    response_model=Blogpost,
+    responses={
+        409: {
+            "description": "Блогпост с таким id уже существует",
+            "model": ErrorResponse,
+        },
+    },
+)
+async def create_blogpost(request: Request, body: BlogpostCreate) -> Blogpost:
+    """Создаёт блогпост в Elasticsearch."""
+    elastic_service = cast(ElasticServiceBase, request.app.state.elastic_service)
+    return await elastic_service.blogposts.create(body)
 
 
 @router.get(
