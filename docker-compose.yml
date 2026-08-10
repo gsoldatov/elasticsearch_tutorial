@@ -19,6 +19,7 @@ services:
     # ES 7.17 — последняя версия без требования AVX/AVX2 на хосте;
     # 8.x и 9.x требуют SIMD-расширения, недоступные на некоторых CPU/VM
     image: docker.elastic.co/elasticsearch/elasticsearch:7.17.28
+    stop_grace_period: 30s
     environment:
       discovery.type: single-node             # Один узел — без кластера и реплик
       ELASTIC_PASSWORD: ${ES_SUPERUSER_PASSWORD}        # Пароль встроенного пользователя elastic
@@ -32,7 +33,7 @@ services:
     volumes:
       - esdata:/usr/share/elasticsearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -s -u elastic:${ES_SUPERUSER_PASSWORD} http://localhost:9200/_cluster/health | grep -q green"]
+      test: ["CMD-SHELL", "curl -s -u elastic:${ES_SUPERUSER_PASSWORD} http://localhost:9200/_cluster/health | grep -q -E 'green|yellow'"]
       interval: 10s
       timeout: 5s
       retries: 30
