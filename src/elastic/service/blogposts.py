@@ -399,10 +399,9 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
         # ── Title-поиск: script_score по title_vector ─────────────────────
         # ES 7.17: dense_vector не индексируется (нет HNSW),
         # поэтому поиск полным перебором через script_score.
-        # cosineSimilarity возвращает [-1, 1]; отрицательные скоры
-        # исключаются ES автоматически — это корректно, т.к. они
-        # соответствуют семантически нерелевантным документам.
-        # +1.0 не добавляем: линейный сдвиг не меняет порядок сортировки.
+        # cosineSimilarity возвращает [-1, 1]; ES 7.x требует
+        # _score >= 0, поэтому добавляем +1.0 (сдвиг в [0, 2]).
+        # Линейный сдвиг не меняет порядок сортировки.
         title_body = {
             "query": {
                 "script_score": {
@@ -414,7 +413,7 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
                         "source": (
                             "cosineSimilarity("
                             "params.query_vector, 'title_vector'"
-                            ")"
+                            ") + 1.0"
                         ),
                         "params": {"query_vector": query_vector},
                     },
@@ -436,7 +435,7 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
                         "source": (
                             "cosineSimilarity("
                             "params.query_vector, 'chunk_vector'"
-                            ")"
+                            ") + 1.0"
                         ),
                         "params": {"query_vector": query_vector},
                     },
@@ -463,9 +462,8 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
             text_scores[blogpost_id] = hit["_score"] or 0.0
 
         # ── Линейное слияние: final = 3 * title_score + text_score ───────
-        # Скоры из обоих запросов — чистый cosineSimilarity в [-1, 1],
+        # Скоры из обоих запросов — cosineSimilarity + 1.0 в [0, 2],
         # сравнимы напрямую. Title имеет вес 3x.
-        # Документы с отрицательным косинусом уже исключены ES.
         all_ids: set[str] = set(title_scores) | set(text_scores)
         fused: list[tuple[str, float]] = []
         for doc_id in all_ids:

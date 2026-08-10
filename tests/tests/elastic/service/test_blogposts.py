@@ -976,6 +976,11 @@ _IDENTITY_VECTOR = [1.0] * 384
 # Вектор, ортогональный единичному по первому измерению (0.0 vs 1.0).
 _OFF_VECTOR = [0.0] + [1.0] * 383
 
+# Вектор, противоположный единичному (cosine = -1.0).
+# Используется для проверки, что отрицательный косинус не вызывает
+# runtime error в ES (скрипт сдвигает результат на +1.0 в [0, 2]).
+_NEG_VECTOR = [-1.0] * 384
+
 
 # ── ошибки ─────────────────────────────────────────────────────────────────
 
@@ -1246,3 +1251,39 @@ async def test_vector_search_missing_title_vector_does_not_break(
     ids = {bp.id for bp in result}
     assert "bp-ok" in ids
     assert "bp-no-vec" not in ids
+
+
+# ── отрицательный косинус ──────────────────────────────────────────────────
+
+
+async def test_vector_search_negative_cosine_no_runtime_error(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """Документ с вектором, противоположным запросу (cosine = -1.0),
+    не вызывает runtime error в ES и не попадает в топ выдачи."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    # Документ с противоположным title_vector: cosine = -1.0 → score = 0.0
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-neg", "Антирелевантный", "Текст", ["tag"],
+        updated_at="2025-01-01T00:00:00Z",
+        title_vector=_NEG_VECTOR,
+    )
+    # Документ с совпадающим title_vector: cosine = 1.0 → score = 2.0
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-pos", "Релевантный", "Текст", ["tag"],
+        updated_at="2025-01-02T00:00:00Z",
+        title_vector=_IDENTITY_VECTOR,
+    )
+
+    # Не должно быть runtime error
+    result = await elastic_service.blogposts.vector_search("запрос")
+    ids = [bp.id for bp in result]
+
+    # Релевантный документ должен быть первым
+    assert ids[0] == "bp-pos"
+    # Антирелевантный — в конце или отсутствует
+    if "bp-neg" in ids:
+        assert ids.index("bp-neg") > ids.index("bp-pos")
