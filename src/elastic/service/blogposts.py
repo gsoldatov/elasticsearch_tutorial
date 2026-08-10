@@ -243,6 +243,7 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
         )
 
     # ── Full-text search ────────────────────────────────────────────────────────────
+
     @internal_validation
     async def search(
         self,
@@ -319,6 +320,56 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
             for hit in response["hits"]["hits"]
         ]
         return BlogpostSearchResult(items=items, total=total)
+
+
+    async def search_tags(self, q: str) -> list[str]:
+        """Префиксный поиск по тегам. Возвращает уникальные теги."""
+        # Нормализация запроса: пробелы/табы → '_',
+        # остальные не-букво-цифры (кроме '_') удаляются
+        q = re_sub(r"[^\w]", "", q.replace("\t", "_").replace(" ", "_"))
+
+        # Case-insensitive префиксный регекс для фильтрации агрегации.
+        # Lucene-регекс не поддерживает (?i) — строим через классы символов.
+        _re_chars: list[str] = []
+        for c in q:
+            if c.isalpha():
+                _re_chars.append(f"[{c.lower()}{c.upper()}]")
+            elif c in ".?+*|{}[]()\"\\#@&<>~":
+                _re_chars.append("\\" + c)
+            else:
+                _re_chars.append(c)
+        _include_re = "".join(_re_chars) + ".*"
+
+        index = self._es._config.es_blogposts_index_name
+
+        body: dict = {
+            "query": {
+                "match_bool_prefix": {
+                    "tags._as_you_type": {
+                        "query": q,
+                    },
+                },
+            },
+            "aggs": {
+                "unique_tags": {
+                    "terms": {
+                        "field": "tags",
+                        "include": _include_re,
+                        "size": 10,
+                    },
+                },
+            },
+            "size": 0,
+        }
+
+        response = await self.client.search(index=index, body=body)
+
+        total = response["hits"]["total"]["value"]
+        if total == 0:
+            raise NotFoundException("Теги по заданному запросу не найдены")
+
+        buckets = response["aggregations"]["unique_tags"]["buckets"]
+        return sorted(bucket["key"] for bucket in buckets)
 
     # ── Vector search ────────────────────────────────────────────────────────
 
@@ -446,52 +497,3 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
             for doc_id in top_ids
             if doc_id in doc_map
         ]
-
-    async def search_tags(self, q: str) -> list[str]:
-        """Префиксный поиск по тегам. Возвращает уникальные теги."""
-        # Нормализация запроса: пробелы/табы → '_',
-        # остальные не-букво-цифры (кроме '_') удаляются
-        q = re_sub(r"[^\w]", "", q.replace("\t", "_").replace(" ", "_"))
-
-        # Case-insensitive префиксный регекс для фильтрации агрегации.
-        # Lucene-регекс не поддерживает (?i) — строим через классы символов.
-        _re_chars: list[str] = []
-        for c in q:
-            if c.isalpha():
-                _re_chars.append(f"[{c.lower()}{c.upper()}]")
-            elif c in ".?+*|{}[]()\"\\#@&<>~":
-                _re_chars.append("\\" + c)
-            else:
-                _re_chars.append(c)
-        _include_re = "".join(_re_chars) + ".*"
-
-        index = self._es._config.es_blogposts_index_name
-
-        body: dict = {
-            "query": {
-                "match_bool_prefix": {
-                    "tags._as_you_type": {
-                        "query": q,
-                    },
-                },
-            },
-            "aggs": {
-                "unique_tags": {
-                    "terms": {
-                        "field": "tags",
-                        "include": _include_re,
-                        "size": 10,
-                    },
-                },
-            },
-            "size": 0,
-        }
-
-        response = await self.client.search(index=index, body=body)
-
-        total = response["hits"]["total"]["value"]
-        if total == 0:
-            raise NotFoundException("Теги по заданному запросу не найдены")
-
-        buckets = response["aggregations"]["unique_tags"]["buckets"]
-        return sorted(bucket["key"] for bucket in buckets)
