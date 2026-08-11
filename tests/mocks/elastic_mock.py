@@ -122,10 +122,12 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
         self.search_calls: list[dict] = []
         self.search_tags_calls: list[dict] = []
         self.vector_search_calls: list[dict] = []
+        self.hybrid_search_calls: list[dict] = []
 
         self._blogposts: dict[str, Blogpost] = {}
         self._id_counter: int = 0
         self._vector_search_result: list[Blogpost] | None = None
+        self._hybrid_search_result: list[Blogpost] | None = None
 
         self.raise_on_create: Exception | None = None
         self.raise_on_get: Exception | None = None
@@ -134,6 +136,7 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
         self.raise_on_search: Exception | None = None
         self.raise_on_search_tags: Exception | None = None
         self.raise_on_vector_search: Exception | None = None
+        self.raise_on_hybrid_search: Exception | None = None
 
     @property
     def embeddings(self) -> BlogpostsEmbeddingsMock:
@@ -272,6 +275,20 @@ class ElasticBlogpostsServiceMock(ElasticBlogpostsServiceBase):
         self.vector_search_calls.append({"query": query, "size": size})
         if self._vector_search_result is not None:
             return self._vector_search_result
+        return list(self._blogposts.values())[:size]
+
+    def set_hybrid_search_result(self, result: list[Blogpost]) -> None:
+        """Задать результат, возвращаемый hybrid_search."""
+        self._hybrid_search_result = result
+
+    async def hybrid_search(
+        self, query: str, size: int = 20,
+    ) -> list[Blogpost]:
+        if self.raise_on_hybrid_search is not None:
+            raise self.raise_on_hybrid_search
+        self.hybrid_search_calls.append({"query": query, "size": size})
+        if self._hybrid_search_result is not None:
+            return self._hybrid_search_result
         return list(self._blogposts.values())[:size]
 
 

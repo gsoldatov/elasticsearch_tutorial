@@ -1334,3 +1334,210 @@ async def test_vector_search_negative_cosine_no_runtime_error(
     # bp-neg: cos=-1.0 → score=0.0 → fused=0.0 (в конце, скрипт не падает)
     assert result[0].id == "bp-pos"
     assert result[1].id == "bp-neg"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# hybrid_search
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+# ── ошибки ─────────────────────────────────────────────────────────────────
+
+
+async def test_hybrid_search_embeddings_error_propagates(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """EmbeddingsNetworkError при hybrid_search пробрасывается."""
+    mock_blogposts_embeddings.raise_on_get_embeddings = EmbeddingsNetworkError(
+        "ollama down"
+    )
+
+    with pytest.raises(EmbeddingsNetworkError, match="ollama down"):
+        await elastic_service.blogposts.hybrid_search("запрос")
+
+
+# ── пустой индекс ──────────────────────────────────────────────────────────
+
+
+async def test_hybrid_search_empty_index_returns_empty_list(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """Гибридный поиск по пустому индексу возвращает пустой список."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    result = await elastic_service.blogposts.hybrid_search("запрос")
+    assert result == []
+
+
+# ── поиск по full-text ──────────────────────────────────────────────────────
+
+
+async def test_hybrid_search_finds_by_fulltext_only(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """Документ без векторов, но с совпадением в тексте — находится
+    через full-text ранкер."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    # Документ с уникальным словом в тексте, без векторов
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-ft", "Обычный заголовок", "уникальное_слово_для_поиска", ["tag"],
+        updated_at="2025-01-01T00:00:00Z",
+        title_vector=None,
+    )
+    # Пустышка без векторов и без совпадения
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-other", "Другой", "Ничего общего", ["tag"],
+        updated_at="2025-01-02T00:00:00Z",
+        title_vector=None,
+    )
+
+    result = await elastic_service.blogposts.hybrid_search(
+        "уникальное_слово_для_поиска",
+    )
+    assert len(result) == 1
+    assert result[0].id == "bp-ft"
+
+
+async def test_hybrid_search_title_boosted_over_text_in_fulltext(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """full-text ранкер даёт title^3: совпадение в title выше, чем в text."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    # Документ с ключевым словом в тексте
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-text", "Обычный заголовок", "elasticsearch — поисковый движок", ["tag"],
+        updated_at="2025-01-01T00:00:00Z",
+        title_vector=None,
+    )
+    # Документ с ключевым словом в заголовке
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-title", "elasticsearch для начинающих", "Какой-то текст", ["tag"],
+        updated_at="2025-01-02T00:00:00Z",
+        title_vector=None,
+    )
+
+    result = await elastic_service.blogposts.hybrid_search("elasticsearch")
+    assert len(result) == 2
+    assert result[0].id == "bp-title"
+    assert result[1].id == "bp-text"
+
+
+# ── поиск по векторам ──────────────────────────────────────────────────────
+
+
+async def test_hybrid_search_finds_by_vector_only(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """Документ без текстового совпадения, но с близким вектором —
+    находится через векторный ранкер."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    # Документ с близким title_vector, но запрос не совпадает с текстом
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-vec", "Заголовок не совпадает", "Текст тоже не совпадает", ["tag"],
+        updated_at="2025-01-01T00:00:00Z",
+        title_vector=_IDENTITY_VECTOR,
+    )
+    # Пустышка
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-other", "Другой", "Ничего общего", ["tag"],
+        updated_at="2025-01-02T00:00:00Z",
+        title_vector=None,
+    )
+
+    # Запрос НЕ совпадает ни с одним текстом
+    result = await elastic_service.blogposts.hybrid_search("xyzxyz")
+    assert len(result) == 1
+    assert result[0].id == "bp-vec"
+
+
+# ── RRF-слияние ────────────────────────────────────────────────────────────
+
+
+async def test_hybrid_search_rrf_boosts_doc_in_both_rankers(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """Документ, попавший в оба ранкера, получает более высокий RRF-score,
+    чем документы только из одного."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    # Документ и в full-text, и в векторном: title содержит запрос и title_vector близок
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-both", "python руководство", "изучаем python", ["tag"],
+        updated_at="2025-01-01T00:00:00Z",
+        title_vector=_IDENTITY_VECTOR,
+    )
+    # Документ только в full-text: запрос в тексте, но вектор далеко
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-ft-only", "Другой заголовок", "python — отличный язык", ["tag"],
+        updated_at="2025-01-02T00:00:00Z",
+        title_vector=_OFF_VECTOR,
+    )
+    # Документ только в векторном: вектор близок, но текстового совпадения нет
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-vec-only", "Совсем другой заголовок", "Никакого совпадения", ["tag"],
+        updated_at="2025-01-03T00:00:00Z",
+        title_vector=_IDENTITY_VECTOR,
+    )
+
+    result = await elastic_service.blogposts.hybrid_search("python")
+    assert len(result) == 3
+    # bp-both получает RRF-score от обоих ранкеров → должен быть первым
+    assert result[0].id == "bp-both"
+
+
+# ── size ────────────────────────────────────────────────────────────────────
+
+
+async def test_hybrid_search_respects_size(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """Параметр size ограничивает количество результатов."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    for i in range(10):
+        elastic_operations.blogposts.index_blogpost_with_vectors(
+            f"bp-{i}", f"Post {i}", "общий текст", ["tag"],
+            updated_at=f"2025-01-{i+1:02d}T00:00:00Z",
+            title_vector=_IDENTITY_VECTOR,
+        )
+
+    result = await elastic_service.blogposts.hybrid_search(
+        "общий текст", size=5,
+    )
+    assert len(result) == 5
+
+
+async def test_hybrid_search_default_size_is_20(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """По умолчанию size=20."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    for i in range(25):
+        elastic_operations.blogposts.index_blogpost_with_vectors(
+            f"bp-{i}", f"Post {i}", "общий текст", ["tag"],
+            updated_at=f"2025-01-{i+1:02d}T00:00:00Z",
+            title_vector=_IDENTITY_VECTOR,
+        )
+
+    result = await elastic_service.blogposts.hybrid_search("общий текст")
+    assert len(result) == 20

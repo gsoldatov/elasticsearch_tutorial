@@ -100,6 +100,22 @@ async def vector_search_blogposts(
     return await elastic_service.blogposts.vector_search(q)
 
 
+# ── Hybrid search ────────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/hybrid_search",
+    response_model=list[Blogpost],
+)
+async def hybrid_search_blogposts(
+    request: Request,
+    q: str = Query(min_length=1, max_length=256, description="Поисковый запрос"),
+) -> list[Blogpost]:
+    """Гибридный поиск блогпостов: full-text + векторный, RRF-слияние."""
+    elastic_service = cast(ElasticServiceBase, request.app.state.elastic_service)
+    return await elastic_service.blogposts.hybrid_search(q)
+
+
 # ── CRUD ────────────────────────────────────────────────────────────
 
 

@@ -373,43 +373,34 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
 
     # ── Vector search ────────────────────────────────────────────────────────
 
-    @internal_validation
-    async def vector_search(
-        self, query: str, size: int = 20,
-    ) -> list[Blogpost]:
-        """Векторный поиск блогпостов: KNN по title_vector и chunk_vector
-        с линейным слиянием (title имеет вес 3x против text).
+    async def _vector_search_scores(
+        self, query_vector: list[float], candidate_size: int,
+    ) -> dict[str, float]:
+        """
+        Выполняет векторный поиск по заголовкам и чанкам текстов постов:
+        - в качестве метрики сходства используется косинусная близость (в ES 7
+          нет HNSW и встроенного KNN поиска, поэтому используется `script_score`);
+        - при поиске по тексту для блогпоста выбирается лучший результат среди
+          всех его чанков;
+        - результаты поиска по заголовкам и чанкам текстов объединяются с помощью
+          линейного слияния (заголовкам дается втрое больший вес).
 
-        Ограничения текущей реализации:
-        - Поиск полным перебором (brute-force): ES 7.17 не поддерживает
-          индексирование dense_vector (HNSW добавлен в 8.x), поэтому
-          каждый запрос сканирует все документы индекса.
-        - Два запроса к ES (title + text chunks) вместо одного —
-          увеличивает latency.
-        - Документы без title_vector исключаются из title-результатов
-          через exists-фильтр (cosineSimilarity на отсутствующем поле
-          вызывает runtime error).
+        Результат поиска возвращается в формате {doc_id: fused_score}
         """
         index = self._es._config.es_blogposts_index_name
         chunks_index = self._es._config.es_blogposts_text_chunks_index_name
 
-        # Получаем эмбеддинг поискового запроса
-        query_vector = await self.embeddings.embed_query(query)
-
-        # ── Title-поиск: script_score по title_vector ─────────────────────
-        # ES 7.17: dense_vector не индексируется (нет HNSW),
-        # поэтому поиск полным перебором через script_score.
-        # cosineSimilarity возвращает [-1, 1]; ES 7.x требует
-        # _score >= 0, поэтому добавляем +1.0 (сдвиг в [0, 2]).
+        # Поиск по заголовкам (полный перебор с помощью script_score).
         # Линейный сдвиг не меняет порядок сортировки.
         title_body = {
             "query": {
                 "script_score": {
-                    # exists-фильтр: скрипт выполняется только для документов,
-                    # у которых есть поле title_vector — без него
-                    # cosineSimilarity упадёт с runtime error
+                    # скрипт выполняется только для документов, у которых есть поле
+                    # title_vector (без него cosineSimilarity упадёт с runtime error)
                     "query": {"exists": {"field": "title_vector"}},
                     "script": {
+                        # cosineSimilarity возвращает [-1, 1]; ES 7.x требует
+                        # _score >= 0, поэтому добавляем +1.0 (сдвиг в [0, 2]).
                         "source": (
                             "cosineSimilarity("
                             "params.query_vector, 'title_vector'"
@@ -419,17 +410,16 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
                     },
                 },
             },
-            "size": size * 5,
+            "size": candidate_size,
             "_source": True,
         }
 
-        # ── Text-поиск: script_score по chunk_vector с collapse ────────────
-        # collapse по blogpost_id оставляет один хит на документ
-        # с максимальным _score среди его чанков — это и есть
-        # «best score per document» для текста.
+        # Поиск по тексту (полный перебор всех чанков с помощью script_score).        
         text_body = {
             "query": {
                 "script_score": {
+                    # скрипт выполняется только для документов, у которых есть поле
+                    # chunk_vector (без него cosineSimilarity упадёт с runtime error)
                     "query": {"exists": {"field": "chunk_vector"}},
                     "script": {
                         "source": (
@@ -441,8 +431,10 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
                     },
                 },
             },
+            # collapse по blogpost_id оставляет один результат на документ
+            # с максимальным _score
             "collapse": {"field": "blogpost_id"},
-            "size": size * 5,
+            "size": candidate_size,
             "_source": False,
         }
 
@@ -451,7 +443,7 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
             self.client.search(index=chunks_index, body=text_body),
         )
 
-        # ── Извлечение скоров ─────────────────────────────────────────────
+        # Извлечение скоров
         title_scores: dict[str, float] = {}
         for hit in title_resp["hits"]["hits"]:
             title_scores[hit["_id"]] = hit["_score"] or 0.0
@@ -461,28 +453,39 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
             blogpost_id = hit["fields"]["blogpost_id"][0]
             text_scores[blogpost_id] = hit["_score"] or 0.0
 
-        # ── Линейное слияние: final = 3 * title_score + text_score ───────
-        # Скоры из обоих запросов — cosineSimilarity + 1.0 в [0, 2],
-        # сравнимы напрямую. Title имеет вес 3x.
+        # Линейное слияние: final = 3 * title_score + text_score
         all_ids: set[str] = set(title_scores) | set(text_scores)
-        fused: list[tuple[str, float]] = []
+        fused: dict[str, float] = {}
         for doc_id in all_ids:
             t_score = title_scores.get(doc_id, 0.0)
             c_score = text_scores.get(doc_id, 0.0)
-            fused.append((doc_id, 3 * t_score + c_score))
+            fused[doc_id] = 3 * t_score + c_score
 
-        fused.sort(key=lambda item: item[1], reverse=True)
-        top_ids = [doc_id for doc_id, _ in fused[:size]]
+        return fused
 
-        if not top_ids:
+    @internal_validation
+    async def vector_search(
+        self, query: str, size: int = 20,
+    ) -> list[Blogpost]:
+        """
+        Векторный поиск: KNN по title_vector и chunk_vector
+        с линейным слиянием (title имеет вес 3x против text).
+        """
+        index = self._es._config.es_blogposts_index_name
+
+        query_vector = await self.embeddings.embed_query(query)
+        fused = await self._vector_search_scores(query_vector, size * 5)
+
+        if not fused:
             return []
 
-        # ── Получение полных документов ───────────────────────────────────
+        sorted_ids = sorted(fused, key=fused.get, reverse=True)[:size]
+
         # mget не гарантирует порядок — восстанавливаем вручную;
         # null-документы (удалённые между запросами) отфильтровываем.
         mget_resp = await self.client.mget(
             index=index,
-            body={"ids": top_ids},
+            body={"ids": sorted_ids},
         )
 
         doc_map: dict[str, dict] = {}
@@ -492,6 +495,95 @@ class ElasticBlogpostsService(ElasticBlogpostsServiceBase):
 
         return [
             Blogpost(id=doc_id, **doc_map[doc_id])
-            for doc_id in top_ids
+            for doc_id in sorted_ids
+            if doc_id in doc_map
+        ]
+
+    # ── Hybrid search ────────────────────────────────────────────────────────
+
+    _RRF_K: int = 60
+
+    @internal_validation
+    async def hybrid_search(
+        self, query: str, size: int = 20,
+    ) -> list[Blogpost]:
+        """
+        Гибридный поиск: full-text + векторный, RRF-слияние.
+
+        Два ранкера:
+        1. Full-text: multi_match по title^3 + text (best_fields).
+        2. Векторный: script_score по title_vector + chunk_vector
+           с линейным слиянием 3×title + text.
+
+        Результаты сливаются через Reciprocal Rank Fusion (k=60):
+        score(d) = sum_{ranker} 1 / (k + rank(d, ranker)),
+        где rank нумеруется с 1. Документ, не попавший в топ
+        конкретного ранкера, получает 0 от этого ранкера.
+        """
+        index = self._es._config.es_blogposts_index_name
+
+        candidate_size = size * 5
+
+        # ── Векторный ранкер ────────────────────────────────────────────
+        query_vector = await self.embeddings.embed_query(query)
+        vector_scores = await self._vector_search_scores(
+            query_vector, candidate_size,
+        )
+
+        # ── Full-text ранкер ────────────────────────────────────────────
+        fulltext_body = {
+            "query": {
+                "multi_match": {
+                    "query": query,
+                    "fields": ["title^3", "text"],
+                    "type": "best_fields",
+                },
+            },
+            "size": candidate_size,
+            "_source": False,
+        }
+
+        fulltext_resp = await self.client.search(
+            index=index, body=fulltext_body,
+        )
+
+        # ── RRF-слияние ─────────────────────────────────────────────────
+        k = self._RRF_K
+
+        # Ранги векторного ранкера: сортировка по убыванию fused_score
+        vector_ranked = sorted(
+            vector_scores, key=vector_scores.get, reverse=True,
+        )
+
+        # Ранги full-text ранкера: хиты уже в порядке убывания _score
+        fulltext_ranked = [
+            hit["_id"] for hit in fulltext_resp["hits"]["hits"]
+        ]
+
+        rrf: dict[str, float] = {}
+        for rank, doc_id in enumerate(vector_ranked, start=1):
+            rrf[doc_id] = 1.0 / (k + rank)
+        for rank, doc_id in enumerate(fulltext_ranked, start=1):
+            rrf[doc_id] = rrf.get(doc_id, 0.0) + 1.0 / (k + rank)
+
+        if not rrf:
+            return []
+
+        sorted_ids = sorted(rrf, key=rrf.get, reverse=True)[:size]
+
+        # ── Получение полных документов ─────────────────────────────────
+        mget_resp = await self.client.mget(
+            index=index,
+            body={"ids": sorted_ids},
+        )
+
+        doc_map: dict[str, dict] = {}
+        for doc in mget_resp["docs"]:
+            if doc["found"]:
+                doc_map[doc["_id"]] = doc["_source"]
+
+        return [
+            Blogpost(id=doc_id, **doc_map[doc_id])
+            for doc_id in sorted_ids
             if doc_id in doc_map
         ]

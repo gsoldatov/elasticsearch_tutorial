@@ -99,6 +99,12 @@ class ElasticBlogpostsServiceBase(ABC):
         """Векторный поиск блогпостов: KNN по title_vector и chunk_vector
         с линейным слиянием (title 3x вес)."""
 
+    @abstractmethod
+    def hybrid_search(
+        self, query: str, size: int = 20,
+    ) -> Awaitable[list[Blogpost]]:
+        """Гибридный поиск блогпостов: full-text + векторный, RRF-слияние."""
+
 
 class ElasticServiceBase(ABC):
     """Абстрактный класс для фасада ES-сервиса."""

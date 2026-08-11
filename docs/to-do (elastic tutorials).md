@@ -60,7 +60,7 @@
         + top n products by revenue grouped by region;    // nested aggregation; allow period and region filters
         + group sales by units_sold intervals of 10 (1-10, 11-20, ...) and calculate revenue; allow period, region and product filters
 
-- vector search:
++ vector search:
     + architecture:
         x nested dense_vector; // not implemented in ES 7.17
         + two indices:
@@ -137,23 +137,24 @@
     
     + print current progress in migration and ingestion scripts;
 
-    - new endpoints (no min_time/max_time/tags filters):
+    + new endpoints (no min_time/max_time/tags filters):
         + GET /blogposts/vector_search?q=...:
             x ANN + chunk collapse + linear fusion;     // ANN is unavailable in v7.17
             + KNN + chunk collapse (pick best result) + linear fusion with title vector;
-        - GET /blogposts/hybrid_search?q=...;  // same + BM25 multi_match   // TODO specify FTS + vector fusion logic
+        + GET /blogposts/hybrid_search?q=...;  // same + BM25 multi_match   // TODO specify FTS + vector fusion logic
 
-    - tests:
-        - update config tests;
-        - mock embeddings via random vectors for existing tests;
-        - migration tests;
-        - new route handler tests;
-        - functional tests for getting embeddings and handling Ollama network errors;
-        ? search quality tests;
-    
-    ? update README.md with info on when embedding container is required;
+    + tests:
+        + update config tests;
+        + mock embeddings via random vectors for existing tests;
+        + migration tests;
+        + new route handlers' tests;
+        + functional tests for getting embeddings and handling Ollama network errors;
+        x search quality tests;    
 
-? geospatial data;
+- update README.md:
+    - general description;
+    - review commands;
+    - info on when containers are required;
 
 
 
