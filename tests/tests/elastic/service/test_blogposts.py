@@ -1037,9 +1037,9 @@ async def test_vector_search_finds_by_title(
     )
 
     result = await elastic_service.blogposts.vector_search("запрос")
-    assert len(result) >= 1
-    # Документ с _IDENTITY_VECTOR должен быть первым (cos = 1.0)
+    assert len(result) == 2
     assert result[0].id == "bp-title"
+    assert result[1].id == "bp-off"
 
 
 # ── поиск по чанкам текста ─────────────────────────────────────────────────
@@ -1081,8 +1081,60 @@ async def test_vector_search_finds_by_text_chunks(
     )
 
     result = await elastic_service.blogposts.vector_search("запрос")
-    assert len(result) >= 1
+    assert len(result) == 1
     assert result[0].id == "bp-chunks"
+
+
+async def test_vector_search_collapses_multiple_chunks(
+    elastic_service: ElasticService,
+    elastic_operations: ElasticOperations,
+    mock_blogposts_embeddings: BlogpostsEmbeddingsMock,
+):
+    """Несколько чанков одного блогпоста схлопываются в один результат
+    с максимальным score среди чанков."""
+    mock_blogposts_embeddings.set_query_vector(_IDENTITY_VECTOR)
+
+    # Блогпост с двумя чанками разной релевантности
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-multi", "Заголовок", "Текст", ["tag"],
+        updated_at="2025-01-01T00:00:00Z",
+        title_vector=None,
+        chunks=[
+            {
+                "blogpost_id": "bp-multi",
+                "chunk_index": 0,
+                "chunk_text": "Чанк A",
+                "chunk_vector": _OFF_VECTOR,
+            },
+            {
+                "blogpost_id": "bp-multi",
+                "chunk_index": 1,
+                "chunk_text": "Чанк B",
+                "chunk_vector": _IDENTITY_VECTOR,
+            },
+        ],
+    )
+    # Второй блогпост с одним слабым чанком
+    elastic_operations.blogposts.index_blogpost_with_vectors(
+        "bp-other", "Другой", "Текст", ["tag"],
+        updated_at="2025-01-02T00:00:00Z",
+        title_vector=None,
+        chunks=[
+            {
+                "blogpost_id": "bp-other",
+                "chunk_index": 0,
+                "chunk_text": "Чанк",
+                "chunk_vector": _OFF_VECTOR,
+            },
+        ],
+    )
+
+    result = await elastic_service.blogposts.vector_search("запрос")
+    assert len(result) == 2
+    # bp-multi — лучший чанк с _IDENTITY_VECTOR (cos=1.0 → score=2.0)
+    # bp-other — единственный чанк с _OFF_VECTOR (cos≈0.997 → score≈1.997)
+    assert result[0].id == "bp-multi"
+    assert result[1].id == "bp-other"
 
 
 # ── слияние title + text ───────────────────────────────────────────────────
@@ -1126,12 +1178,10 @@ async def test_vector_search_merges_title_and_text(
     )
 
     result = await elastic_service.blogposts.vector_search("запрос")
-    ids = {bp.id for bp in result}
-    assert "bp-good-title" in ids
-    assert "bp-good-text" in ids
-
-
-# ── вес title 3x ───────────────────────────────────────────────────────────
+    assert len(result) == 2
+    # bp-good-title (3×2.0 + ~0.003 ≈ 6.0) vs bp-good-text (3×~0.003 + 2.0 ≈ 2.01)
+    assert result[0].id == "bp-good-title"
+    assert result[1].id == "bp-good-text"
 
 
 async def test_vector_search_title_3x_weight(
@@ -1173,7 +1223,7 @@ async def test_vector_search_title_3x_weight(
     )
 
     result = await elastic_service.blogposts.vector_search("запрос")
-    assert len(result) >= 2
+    assert len(result) == 2
     # bp-title (title=1.0, text~0) vs bp-text (title~0, text=1.0)
     # fused: 3*1.0 + 0 vs 3*0 + 1.0 → bp-title выше
     assert result[0].id == "bp-title"
@@ -1247,10 +1297,8 @@ async def test_vector_search_missing_title_vector_does_not_break(
     )
 
     result = await elastic_service.blogposts.vector_search("запрос")
-    # bp-ok должен быть в выдаче, bp-no-vec — нет (не имеет векторов)
-    ids = {bp.id for bp in result}
-    assert "bp-ok" in ids
-    assert "bp-no-vec" not in ids
+    assert len(result) == 1
+    assert result[0].id == "bp-ok"
 
 
 # ── отрицательный косинус ──────────────────────────────────────────────────
@@ -1280,10 +1328,9 @@ async def test_vector_search_negative_cosine_no_runtime_error(
 
     # Не должно быть runtime error
     result = await elastic_service.blogposts.vector_search("запрос")
-    ids = [bp.id for bp in result]
 
-    # Релевантный документ должен быть первым
-    assert ids[0] == "bp-pos"
-    # Антирелевантный — в конце или отсутствует
-    if "bp-neg" in ids:
-        assert ids.index("bp-neg") > ids.index("bp-pos")
+    assert len(result) == 2
+    # bp-pos: cos=1.0 → score=2.0 → fused=6.0
+    # bp-neg: cos=-1.0 → score=0.0 → fused=0.0 (в конце, скрипт не падает)
+    assert result[0].id == "bp-pos"
+    assert result[1].id == "bp-neg"
