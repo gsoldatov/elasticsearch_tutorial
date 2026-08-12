@@ -152,12 +152,7 @@
         x search quality tests;    
 
 + add curl requests;
-
-- update README.md:
-    - general description;
-    - review commands;
-    - curl requests reference;
-    - info on when containers are required;
++ update README.md;
 
 
 
