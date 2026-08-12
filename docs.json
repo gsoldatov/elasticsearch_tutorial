@@ -110,10 +110,1045 @@
                     }
                 }
             }
+        },
+        "/blogposts/search": {
+            "get": {
+                "tags": [
+                    "blogposts"
+                ],
+                "summary": "Search Blogposts",
+                "description": "Полнотекстовый поиск блогпостов с фильтрами и пагинацией.",
+                "operationId": "search_blogposts_blogposts_search_get",
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "description": "Текстовый запрос",
+                            "title": "Q"
+                        },
+                        "description": "Текстовый запрос"
+                    },
+                    {
+                        "name": "min_time",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "format": "date-time"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Нижняя граница updated_at",
+                            "title": "Min Time"
+                        },
+                        "description": "Нижняя граница updated_at"
+                    },
+                    {
+                        "name": "max_time",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "format": "date-time"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Верхняя граница updated_at",
+                            "title": "Max Time"
+                        },
+                        "description": "Верхняя граница updated_at"
+                    },
+                    {
+                        "name": "tags",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Теги через запятую, до 10",
+                            "title": "Tags"
+                        },
+                        "description": "Теги через запятую, до 10"
+                    },
+                    {
+                        "name": "p",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 1000000,
+                            "minimum": 1,
+                            "description": "Номер страницы",
+                            "default": 1,
+                            "title": "P"
+                        },
+                        "description": "Номер страницы"
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 100,
+                            "minimum": 1,
+                            "description": "Элементов на странице",
+                            "default": 20,
+                            "title": "Per Page"
+                        },
+                        "description": "Элементов на странице"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BlogpostSearchResult"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Блогпосты по заданному запросу не найдены",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/blogposts/search_tags": {
+            "get": {
+                "tags": [
+                    "blogposts"
+                ],
+                "summary": "Search Tags",
+                "description": "Нечёткий префиксный поиск по тегам. Возвращает уникальные теги.",
+                "operationId": "search_tags_blogposts_search_tags_get",
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "description": "Префикс тега",
+                            "title": "Q"
+                        },
+                        "description": "Префикс тега"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "title": "Response Search Tags Blogposts Search Tags Get"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Теги по заданному запросу не найдены",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/blogposts/vector_search": {
+            "get": {
+                "tags": [
+                    "blogposts"
+                ],
+                "summary": "Vector Search Blogposts",
+                "description": "Векторный поиск блогпостов: KNN по заголовку и чанкам текста\nс линейным слиянием (title имеет вес 3x против text).",
+                "operationId": "vector_search_blogposts_blogposts_vector_search_get",
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "description": "Поисковый запрос",
+                            "title": "Q"
+                        },
+                        "description": "Поисковый запрос"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Blogpost"
+                                    },
+                                    "title": "Response Vector Search Blogposts Blogposts Vector Search Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/blogposts/hybrid_search": {
+            "get": {
+                "tags": [
+                    "blogposts"
+                ],
+                "summary": "Hybrid Search Blogposts",
+                "description": "Гибридный поиск блогпостов: full-text + векторный, RRF-слияние.",
+                "operationId": "hybrid_search_blogposts_blogposts_hybrid_search_get",
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "description": "Поисковый запрос",
+                            "title": "Q"
+                        },
+                        "description": "Поисковый запрос"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Blogpost"
+                                    },
+                                    "title": "Response Hybrid Search Blogposts Blogposts Hybrid Search Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/blogposts/": {
+            "post": {
+                "tags": [
+                    "blogposts"
+                ],
+                "summary": "Create Blogpost",
+                "description": "Создаёт блогпост в Elasticsearch.",
+                "operationId": "create_blogpost_blogposts__post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BlogpostCreate"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Blogpost"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Блогпост с таким id уже существует",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/blogposts/{blogpost_id}": {
+            "get": {
+                "tags": [
+                    "blogposts"
+                ],
+                "summary": "Get Blogpost",
+                "description": "Возвращает блогпост по id.",
+                "operationId": "get_blogpost_blogposts__blogpost_id__get",
+                "parameters": [
+                    {
+                        "name": "blogpost_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Blogpost Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Blogpost"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Блогпост не найден",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "tags": [
+                    "blogposts"
+                ],
+                "summary": "Update Blogpost",
+                "description": "Частично обновляет блогпост с optimistic lock.",
+                "operationId": "update_blogpost_blogposts__blogpost_id__patch",
+                "parameters": [
+                    {
+                        "name": "blogpost_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Blogpost Id"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BlogpostUpdate"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Blogpost"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Блогпост не найден",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Конфликт версий документа",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "blogposts"
+                ],
+                "summary": "Delete Blogpost",
+                "description": "Удаляет блогпост. Возвращает 204 даже если не найден.",
+                "operationId": "delete_blogpost_blogposts__blogpost_id__delete",
+                "parameters": [
+                    {
+                        "name": "blogpost_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Blogpost Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Successful Response"
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/sales/by_month_and_region": {
+            "get": {
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Sales By Month And Region",
+                "description": "Агрегация выручки по месяцам и регионам с фильтрами.",
+                "operationId": "sales_by_month_and_region_sales_by_month_and_region_get",
+                "parameters": [
+                    {
+                        "name": "min_date",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "format": "date"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Нижняя граница даты",
+                            "title": "Min Date"
+                        },
+                        "description": "Нижняя граница даты"
+                    },
+                    {
+                        "name": "max_date",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "format": "date"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Верхняя граница даты",
+                            "title": "Max Date"
+                        },
+                        "description": "Верхняя граница даты"
+                    },
+                    {
+                        "name": "region",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Регионы через запятую, до 10",
+                            "title": "Region"
+                        },
+                        "description": "Регионы через запятую, до 10"
+                    },
+                    {
+                        "name": "products",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Продукты через запятую, до 10",
+                            "title": "Products"
+                        },
+                        "description": "Продукты через запятую, до 10"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/SalesByMonthRegionItem"
+                                    },
+                                    "title": "Response Sales By Month And Region Sales By Month And Region Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/sales/top_products": {
+            "get": {
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Sales Top Products",
+                "description": "Топ-n продуктов по выручке для каждого региона с фильтрами.",
+                "operationId": "sales_top_products_sales_top_products_get",
+                "parameters": [
+                    {
+                        "name": "n",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 100,
+                            "minimum": 1,
+                            "description": "Количество продуктов на регион",
+                            "default": 10,
+                            "title": "N"
+                        },
+                        "description": "Количество продуктов на регион"
+                    },
+                    {
+                        "name": "min_date",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "format": "date"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Нижняя граница даты",
+                            "title": "Min Date"
+                        },
+                        "description": "Нижняя граница даты"
+                    },
+                    {
+                        "name": "max_date",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "format": "date"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Верхняя граница даты",
+                            "title": "Max Date"
+                        },
+                        "description": "Верхняя граница даты"
+                    },
+                    {
+                        "name": "region",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Регионы через запятую, до 10",
+                            "title": "Region"
+                        },
+                        "description": "Регионы через запятую, до 10"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/TopProductItem"
+                                    },
+                                    "title": "Response Sales Top Products Sales Top Products Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/sales/units_sold_groups": {
+            "get": {
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Sales Units Sold Groups",
+                "description": "Группировка выручки по интервалам units_sold (1-10, 11-20, ...).",
+                "operationId": "sales_units_sold_groups_sales_units_sold_groups_get",
+                "parameters": [
+                    {
+                        "name": "min_date",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "format": "date"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Нижняя граница даты",
+                            "title": "Min Date"
+                        },
+                        "description": "Нижняя граница даты"
+                    },
+                    {
+                        "name": "max_date",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "format": "date"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Верхняя граница даты",
+                            "title": "Max Date"
+                        },
+                        "description": "Верхняя граница даты"
+                    },
+                    {
+                        "name": "region",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Регионы через запятую, до 10",
+                            "title": "Region"
+                        },
+                        "description": "Регионы через запятую, до 10"
+                    },
+                    {
+                        "name": "products",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Продукты через запятую, до 10",
+                            "title": "Products"
+                        },
+                        "description": "Продукты через запятую, до 10"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/UnitsSoldGroupItem"
+                                    },
+                                    "title": "Response Sales Units Sold Groups Sales Units Sold Groups Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
         "schemas": {
+            "Blogpost": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "title": {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "title": "Title"
+                    },
+                    "text": {
+                        "type": "string",
+                        "maxLength": 8192,
+                        "minLength": 0,
+                        "title": "Text"
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string",
+                            "maxLength": 64,
+                            "minLength": 1
+                        },
+                        "type": "array",
+                        "maxItems": 100,
+                        "minItems": 0,
+                        "title": "Tags"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Updated At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "title",
+                    "text",
+                    "tags",
+                    "updated_at"
+                ],
+                "title": "Blogpost",
+                "description": "Полное представление поста."
+            },
+            "BlogpostCreate": {
+                "properties": {
+                    "id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Id"
+                    },
+                    "title": {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "title": "Title"
+                    },
+                    "text": {
+                        "type": "string",
+                        "maxLength": 8192,
+                        "minLength": 0,
+                        "title": "Text"
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string",
+                            "maxLength": 64,
+                            "minLength": 1
+                        },
+                        "type": "array",
+                        "maxItems": 100,
+                        "minItems": 0,
+                        "title": "Tags"
+                    },
+                    "updated_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Updated At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "title",
+                    "text",
+                    "tags"
+                ],
+                "title": "BlogpostCreate",
+                "description": "Модель для создания поста."
+            },
+            "BlogpostSearchResult": {
+                "properties": {
+                    "items": {
+                        "items": {
+                            "$ref": "#/components/schemas/Blogpost"
+                        },
+                        "type": "array",
+                        "title": "Items"
+                    },
+                    "total": {
+                        "type": "integer",
+                        "title": "Total"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "items",
+                    "total"
+                ],
+                "title": "BlogpostSearchResult",
+                "description": "Результат поиска блогпостов с пагинацией."
+            },
+            "BlogpostUpdate": {
+                "properties": {
+                    "title": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 256,
+                                "minLength": 1
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Title"
+                    },
+                    "text": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 8192,
+                                "minLength": 0
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Text"
+                    },
+                    "tags": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "type": "string",
+                                    "maxLength": 64,
+                                    "minLength": 1
+                                },
+                                "type": "array",
+                                "maxItems": 100,
+                                "minItems": 0
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Tags"
+                    },
+                    "updated_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Updated At"
+                    }
+                },
+                "type": "object",
+                "title": "BlogpostUpdate",
+                "description": "Модель для частичного обновления поста."
+            },
             "Document": {
                 "properties": {
                     "id": {
@@ -173,6 +1208,78 @@
                 },
                 "type": "object",
                 "title": "HTTPValidationError"
+            },
+            "SalesByMonthRegionItem": {
+                "properties": {
+                    "month": {
+                        "type": "string",
+                        "title": "Month",
+                        "description": "Месяц в формате yyyy-MM"
+                    },
+                    "region": {
+                        "type": "string",
+                        "title": "Region"
+                    },
+                    "revenue": {
+                        "type": "number",
+                        "title": "Revenue",
+                        "description": "Суммарная выручка"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "month",
+                    "region",
+                    "revenue"
+                ],
+                "title": "SalesByMonthRegionItem",
+                "description": "Элемент результата агрегации: выручка по месяцу и региону."
+            },
+            "TopProductItem": {
+                "properties": {
+                    "region": {
+                        "type": "string",
+                        "title": "Region"
+                    },
+                    "product": {
+                        "type": "string",
+                        "title": "Product"
+                    },
+                    "revenue": {
+                        "type": "number",
+                        "title": "Revenue",
+                        "description": "Суммарная выручка"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "region",
+                    "product",
+                    "revenue"
+                ],
+                "title": "TopProductItem",
+                "description": "Элемент результата агрегации: топ продуктов по регионам."
+            },
+            "UnitsSoldGroupItem": {
+                "properties": {
+                    "units_sold": {
+                        "type": "string",
+                        "title": "Units Sold",
+                        "description": "Интервал единиц продаж, например 1-10"
+                    },
+                    "total_revenue": {
+                        "type": "number",
+                        "title": "Total Revenue",
+                        "description": "Суммарная выручка"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "units_sold",
+                    "total_revenue"
+                ],
+                "title": "UnitsSoldGroupItem",
+                "description": "Элемент результата агрегации: выручка по интервалам units_sold."
             },
             "ValidationError": {
                 "properties": {
