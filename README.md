@@ -1,17 +1,60 @@
-# Поисковик по текстам документов
-Тестовое задание для компании А.
+# Описание
+Набор упражнений по работе с Elasticsearch на Python + тестовое задание для компании А. Включает в себя:
+- настройка полнотекстового, векторного и гибридного поиска + CRUD-операции в ES (`/blogposts/...`);
+- запросы на аггрегацию данных (`/sales/...`);
+- выполнение тестового задания, описанного [здесь](docs/prd.md), - веб-приложение, взаимодействующее с ES и реляционной СУБД (`/documents/...`).
 
-Веб-сервис на FastAPI с хранением данных в PostgreSQL и поисковым индексом в Elasticsearch.
+Веб-сервис на FastAPI с хранением данных в PostgreSQL и/или поисковыми индексами в Elasticsearch. Эмбеддинги текста для векторного поиска генерируются моделью, работающей в контейнере Ollama.
+
+Состояние проекта на момент сдачи тестового задания доступно [здесь](../../tree/submitted).
+
 
 
 ## Стек
-- Python 3.13, uv;
-- FastAPI, Pydantic, Pydantic Settings;
+- Python 3.13 + uv;
+- FastAPI;
+- httpx;
+- Pydantic, Pydantic Settings;
 - PostgreSQL 17, SQLAlchemy 2 (async), Alembic;
-- Elasticsearch 7.17.
+- Elasticsearch 7.17;
+- Ollama.
 
 
-## Допущения и технические решения
+
+## Структура проекта
+```
+src/
+├── app.py              # Фабрика FastAPI-приложения
+├── config.py           # Загрузка конфига из .env
+├── db/
+│   ├── models.py       # SQLAlchemy ORM-модели
+│   ├── alembic/        # Миграции Alembic
+│   ├── repository/     # Слой доступа к данным
+│   └── scripts/        # Утилиты (создание БД, загрузка данных)
+|
+├── elastic/
+│   ├── base.py         # Базовый класс Elasticsearch-сервиса
+│   ├── scripts/        # Утилиты (запуск миграций, удаление индексов, загрузка тестовых данных)
+│   └── service/        # Сервисные классы для взаимодействия с ES и миграции индексов
+|
+├── exceptions.py       # Исключения уровня приложения
+├── main.py             # Точка входа dev-сервера
+├── middleware/         # Middleware (ошибки и сессия БД)
+├── models/             # Pydantic-модели
+└── routes/
+    ├── blogposts.py    # Упражения по настройке полнотекстового и векторного поиска + CRUD
+    ├── documents.py    # Эндпоинты из тестового задания
+    └── sales.py        # Упражения по аггрегирующим запросам в ES
+
+tests/
+├── conftest.py         # Фикстуры
+├── mocks/              # Моки и утилиты для тестов
+└── tests/              # Тесты, зеркалирующие структуру src/
+```
+
+
+
+## Допущения и технические решения (по тестовому заданию)
 Некоторые требования ТЗ допускают неоднозначную трактовку относительно их реализации, соответствующие им решения перечислены ниже:
 
 - **структура данных**:
@@ -33,7 +76,8 @@
     - если документ отсутствует в ES, но есть в БД, вернет 204 (и удалит из БД).
 
 
-## Настройка окружения для разработки (API, БД и ES в контейнерах)
+
+# Настройка окружения для разработки (API, БД и ES в контейнерах)
 ```bash
 # 1. Скопировать env-файл (изменив его, если требуется)
 cp .env.example .env
@@ -44,22 +88,28 @@ docker compose up
 # 3. Создать пользователя и БД приложения
 docker compose exec api uv run src/db/scripts/app_db.py
 
-# 4. Применить миграции
+# 4. Применить миграции к БД приложения
 docker compose exec api uv run alembic -c src/db/alembic/alembic.ini upgrade head
 
-# 5. Создать поисковый индекс
+# 5. Создать индексы в ES
 docker compose exec api uv run src/elastic/scripts/migrate.py --current base --to head
 ```
 
 API доступен на `http://localhost:<BACKEND_PORT>`.
 
 
-### Дополнительные команды
+
+## Дополнительные команды
 ```bash
 # Загрузить тестовые данные
+## Documents (db скрипт должен быть запущен первым)
 docker compose exec api uv run src/db/scripts/ingest_documents.py
 docker compose exec api uv run src/elastic/scripts/ingest_documents.py
+
+## Blogposts
 docker compose exec api uv run src/elastic/scripts/ingest_blogposts.py --write-file-path data/blogposts.json
+
+## Sales
 docker compose exec api uv run src/elastic/scripts/ingest_sales.py --write-file-path data/sales.json
 
 # Запустить тесты
@@ -69,13 +119,14 @@ docker compose exec api uv run pytest
 docker compose exec api uv run src/db/scripts/app_db.py --delete-existing
 docker compose exec api uv run alembic -c src/db/alembic/alembic.ini upgrade head
 
-# Удалить индексы в ES
+# Удалить и создать заново индексы в ES
 docker compose exec api uv run src/elastic/scripts/delete_indices.py
+docker compose exec api uv run src/elastic/scripts/migrate.py --current base --to head
 ```
 
 
 
-## Настройка окружения для разработки (API развернуто локально, БД и ES - в контейнерах)
+# Настройка окружения для разработки (API развернуто локально, БД и ES - в контейнерах)
 ```bash
 # 1. Установить зависимости
 uv sync --dev
@@ -83,16 +134,16 @@ uv sync --dev
 # 2. Скопировать env-файл (изменив его, если требуется)
 cp .env.example .env
 
-# 3. Поднять БД и Elasticsearch
-docker compose up db elasticsearch
+# 3. Поднять БД, Elasticsearch и Ollama
+docker compose up db elasticsearch ollama
 
 # 4. Создать пользователя и БД приложения
 uv run src/db/scripts/app_db.py
 
-# 5. Применить миграции
+# 5. Применить миграции к БД приложения
 uv run alembic -c src/db/alembic/alembic.ini upgrade head
 
-# 6. Создать поисковый индекс
+# 6. Создать индексы в ES
 uv run src/elastic/scripts/migrate.py --current base --to head
 
 # 7. Запустить сервер
@@ -100,48 +151,6 @@ uv run python src/main.py
 ```
 
 
-### Дополнительные команды
-```bash
-# Загрузить тестовые данные
-uv run src/db/scripts/ingest_documents.py
-uv run src/elastic/scripts/ingest_documents.py
-uv run src/elastic/scripts/ingest_blogposts.py --write-file-path data/blogposts.json
-uv run src/elastic/scripts/ingest_sales.py --write-file-path data/sales.json
 
-# Запустить тесты
-uv run pytest
-
-# Пересоздать пользователя и БД приложения
-uv run src/db/scripts/app_db.py --delete-existing
-uv run alembic -c src/db/alembic/alembic.ini upgrade head
-
-# Удалить индексы в ES
-uv run src/elastic/scripts/delete_indices.py
-```
-
-
-## Структура проекта
-```
-src/
-├── app.py              # Фабрика FastAPI-приложения
-├── config.py           # Загрузка .env через Pydantic Settings
-├── main.py             # Точка входа dev-сервера
-├── models/             # Pydantic-модели (конфиг, схемы документов)
-│   └── config.py
-├── db/
-│   ├── models.py       # SQLAlchemy ORM-модели
-│   ├── alembic/        # Миграции Alembic
-│   ├── repository/     # Слой доступа к данным
-│   └── scripts/        # Утилиты (создание БД, загрузка данных)
-├── elastic/
-│   ├── service.py      # Elasticsearch-клиент и миграции
-│   └── scripts/        # Утилиты (миграции, удаление индексов, загрузка)
-├── routes/             # Обработчики запросов
-├── middleware/         
-└── exceptions.py       # Доменные исключения
-
-tests/
-├── conftest.py         # Фикстуры
-├── mocks/              # Моки и утилиты для тестов
-└── tests/              # Тесты, зеркалирующие структуру src/
-```
+## Дополнительные команды
+Аналогичны командам для проекта, полностью поднятого в Docker, но без `docker compose exec api`. Для запуска тестов требуются контейнеры PostgreSQL, ES и Ollama.
