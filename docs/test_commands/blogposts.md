@@ -19,13 +19,13 @@ curl -s -X POST "$BASE_URL/blogposts/" \
 
 ## Get by ID
 ```bash
-curl -s "$BASE_URL/blogposts/1" | python3 -m json.tool --no-ensure-ascii
+curl -s "$BASE_URL/blogposts/my-post-1" | python3 -m json.tool --no-ensure-ascii
 ```
 
 
 ## Update
 ```bash
-curl -s -X PATCH "$BASE_URL/blogposts/1" \
+curl -s -X PATCH "$BASE_URL/blogposts/my-post-1" \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Обновлённый заголовок",
@@ -38,7 +38,7 @@ curl -s -X PATCH "$BASE_URL/blogposts/1" \
 
 ## Delete
 ```bash
-curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/blogposts/1"
+curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/blogposts/my-post-1"
 ```
 
 
